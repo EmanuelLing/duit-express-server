@@ -1,6 +1,6 @@
 
 CREATE TABLE Admin (
-    adminID CHAR(6) PRIMARY KEY ,
+    adminID CHAR(6) PRIMARY KEY,
     username VARCHAR(50) NOT NULL,
     password VARCHAR(255) NOT NULL,
     name VARCHAR(100),
@@ -10,7 +10,7 @@ CREATE TABLE Admin (
 
 
 CREATE TABLE User (
-    userID CHAR(6) PRIMARY KEY ,
+    userID CHAR(6) PRIMARY KEY,
     username VARCHAR(50) NOT NULL,
     password VARCHAR(255) NOT NULL,
     name VARCHAR(100),
@@ -23,8 +23,14 @@ CREATE TABLE User (
 );
 
 
+CREATE TABLE Icon (
+    iconID CHAR(6) PRIMARY KEY,
+    image BLOB
+);
+
+
 CREATE TABLE Notification (
-    notificationID CHAR(6) PRIMARY KEY ,
+    notificationID CHAR(6) PRIMARY KEY,
     title VARCHAR(100),
     type VARCHAR(50),
     description VARCHAR(255),
@@ -46,12 +52,21 @@ CREATE TABLE UserNotification (
 
 
 CREATE TABLE Budget (
-    budgetID CHAR(6) PRIMARY KEY ,
+    budgetID CHAR(6) PRIMARY KEY,
     amount DECIMAL(10, 2),
     startDate DATE,
     recurrence VARCHAR(50),
     userID CHAR(6),
     FOREIGN KEY (userID) REFERENCES User(userID)
+);
+
+
+CREATE TABLE BasicCategory (
+    basicCategoryID CHAR(6) PRIMARY KEY,
+    name VARCHAR(50),
+    description VARCHAR(255),
+    iconID CHAR(6),
+    FOREIGN KEY (iconID) REFERENCES Icon(iconID)
 );
 
 
@@ -65,11 +80,13 @@ CREATE TABLE BudgetBasicCategory (
 );
 
 
-CREATE TABLE BasicCategory (
-    basicCategoryID CHAR(6) PRIMARY KEY ,
+CREATE TABLE CustomizeCategory (
+    customizeCategoryID CHAR(6) PRIMARY KEY,
     name VARCHAR(50),
     description VARCHAR(255),
+    userID CHAR(6),
     iconID CHAR(6),
+    FOREIGN KEY (userID) REFERENCES User(userID),
     FOREIGN KEY (iconID) REFERENCES Icon(iconID)
 );
 
@@ -84,19 +101,8 @@ CREATE TABLE BudgetCustomizeCategory (
 );
 
 
-CREATE TABLE CustomizeCategory (
-    customizeCategoryID CHAR(6) PRIMARY KEY ,
-    name VARCHAR(50),
-    description VARCHAR(255),
-    userID CHAR(6),
-    iconID CHAR(6),
-    FOREIGN KEY (userID) REFERENCES User(userID),
-    FOREIGN KEY (iconID) REFERENCES Icon(iconID)
-);
-
-
 CREATE TABLE SubCategory (
-    subCategoryID CHAR(6) PRIMARY KEY ,
+    subCategoryID CHAR(6) PRIMARY KEY,
     name VARCHAR(50),
     description VARCHAR(255),
     userID CHAR(6),
@@ -108,14 +114,17 @@ CREATE TABLE SubCategory (
 );
 
 
-CREATE TABLE Icon (
-    iconID CHAR(6) PRIMARY KEY ,
-    image BLOB
+CREATE TABLE IncomeCategory (
+    incomeCategoryID CHAR(6) PRIMARY KEY,
+    name VARCHAR(50),
+    description VARCHAR(255),
+    iconID CHAR(6),
+    FOREIGN KEY (iconID) REFERENCES Icon(iconID)
 );
 
 
 CREATE TABLE Income (
-    incomeID CHAR(6) PRIMARY KEY ,
+    incomeID CHAR(6) PRIMARY KEY,
     amount DECIMAL(10, 2),
     date DATE,
     description VARCHAR(255),
@@ -127,17 +136,8 @@ CREATE TABLE Income (
 );
 
 
-CREATE TABLE IncomeCategory (
-    incomeCategoryID CHAR(6) PRIMARY KEY ,
-    name VARCHAR(50),
-    description VARCHAR(255),
-    iconID CHAR(6),
-    FOREIGN KEY (iconID) REFERENCES Icon(iconID)
-);
-
-
 CREATE TABLE Expense (
-    expenseID CHAR(6) PRIMARY KEY ,
+    expenseID CHAR(6) PRIMARY KEY,
     amount DECIMAL(10, 2),
     date DATE,
     description VARCHAR(255),
@@ -147,3 +147,4 @@ CREATE TABLE Expense (
     FOREIGN KEY (userID) REFERENCES User(userID),
     FOREIGN KEY (subCategoryID) REFERENCES SubCategory(subCategoryID)
 );
+
