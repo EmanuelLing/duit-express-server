@@ -1,6 +1,6 @@
 
 CREATE TABLE Admin (
-    adminID CHAR(6) PRIMARY KEY AUTO_INCREMENT,
+    adminID CHAR(6) PRIMARY KEY ,
     username VARCHAR(50) NOT NULL,
     password VARCHAR(255) NOT NULL,
     name VARCHAR(100),
@@ -10,7 +10,7 @@ CREATE TABLE Admin (
 
 
 CREATE TABLE User (
-    userID CHAR(6) PRIMARY KEY AUTO_INCREMENT,
+    userID CHAR(6) PRIMARY KEY ,
     username VARCHAR(50) NOT NULL,
     password VARCHAR(255) NOT NULL,
     name VARCHAR(100),
@@ -24,7 +24,7 @@ CREATE TABLE User (
 
 
 CREATE TABLE Notification (
-    notificationID CHAR(6) PRIMARY KEY AUTO_INCREMENT,
+    notificationID CHAR(6) PRIMARY KEY ,
     title VARCHAR(100),
     type VARCHAR(50),
     description VARCHAR(255),
@@ -46,7 +46,7 @@ CREATE TABLE UserNotification (
 
 
 CREATE TABLE Budget (
-    budgetID CHAR(6) PRIMARY KEY AUTO_INCREMENT,
+    budgetID CHAR(6) PRIMARY KEY ,
     amount DECIMAL(10, 2),
     startDate DATE,
     recurrence VARCHAR(50),
@@ -66,7 +66,7 @@ CREATE TABLE BudgetBasicCategory (
 
 
 CREATE TABLE BasicCategory (
-    basicCategoryID CHAR(6) PRIMARY KEY AUTO_INCREMENT,
+    basicCategoryID CHAR(6) PRIMARY KEY ,
     name VARCHAR(50),
     description VARCHAR(255),
     iconID CHAR(6),
@@ -85,7 +85,7 @@ CREATE TABLE BudgetCustomizeCategory (
 
 
 CREATE TABLE CustomizeCategory (
-    customizeCategoryID CHAR(6) PRIMARY KEY AUTO_INCREMENT,
+    customizeCategoryID CHAR(6) PRIMARY KEY ,
     name VARCHAR(50),
     description VARCHAR(255),
     userID CHAR(6),
@@ -96,7 +96,7 @@ CREATE TABLE CustomizeCategory (
 
 
 CREATE TABLE SubCategory (
-    subCategoryID CHAR(6) PRIMARY KEY AUTO_INCREMENT,
+    subCategoryID CHAR(6) PRIMARY KEY ,
     name VARCHAR(50),
     description VARCHAR(255),
     userID CHAR(6),
@@ -109,13 +109,13 @@ CREATE TABLE SubCategory (
 
 
 CREATE TABLE Icon (
-    iconID CHAR(6) PRIMARY KEY AUTO_INCREMENT,
+    iconID CHAR(6) PRIMARY KEY ,
     image BLOB
 );
 
 
 CREATE TABLE Income (
-    incomeID CHAR(6) PRIMARY KEY AUTO_INCREMENT,
+    incomeID CHAR(6) PRIMARY KEY ,
     amount DECIMAL(10, 2),
     date DATE,
     description VARCHAR(255),
@@ -128,7 +128,7 @@ CREATE TABLE Income (
 
 
 CREATE TABLE IncomeCategory (
-    incomeCategoryID CHAR(6) PRIMARY KEY AUTO_INCREMENT,
+    incomeCategoryID CHAR(6) PRIMARY KEY ,
     name VARCHAR(50),
     description VARCHAR(255),
     iconID CHAR(6),
@@ -137,7 +137,7 @@ CREATE TABLE IncomeCategory (
 
 
 CREATE TABLE Expense (
-    expenseID CHAR(6) PRIMARY KEY AUTO_INCREMENT,
+    expenseID CHAR(6) PRIMARY KEY ,
     amount DECIMAL(10, 2),
     date DATE,
     description VARCHAR(255),
