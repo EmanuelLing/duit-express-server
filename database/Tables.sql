@@ -9,7 +9,7 @@ CREATE TABLE Admin (
 );
 
 
-CREATE TABLE User (
+CREATE TABLE "User" (
     userID CHAR(6) PRIMARY KEY,
     username VARCHAR(50) NOT NULL,
     password VARCHAR(255) NOT NULL,
@@ -17,7 +17,7 @@ CREATE TABLE User (
     email VARCHAR(100),
     phoneNumber VARCHAR(15),
     address VARCHAR(255),
-    personalImage BLOB,
+    personalImage BYTEA,
     adminID CHAR(6),
     FOREIGN KEY (adminID) REFERENCES Admin(adminID)
 );
@@ -25,7 +25,7 @@ CREATE TABLE User (
 
 CREATE TABLE Icon (
     iconID CHAR(6) PRIMARY KEY,
-    image BLOB
+    image BYTEA
 );
 
 
@@ -34,7 +34,7 @@ CREATE TABLE Notification (
     title VARCHAR(100),
     type VARCHAR(50),
     description VARCHAR(255),
-    image BLOB,
+    image BYTEA,
     date DATE,
     time TIME,
     adminID CHAR(6),
@@ -47,7 +47,7 @@ CREATE TABLE UserNotification (
     userID CHAR(6),
     PRIMARY KEY (notificationID, userID),
     FOREIGN KEY (notificationID) REFERENCES Notification(notificationID),
-    FOREIGN KEY (userID) REFERENCES User(userID)
+    FOREIGN KEY (userID) REFERENCES "User"(userID)
 );
 
 
@@ -57,7 +57,7 @@ CREATE TABLE Budget (
     startDate DATE,
     recurrence VARCHAR(50),
     userID CHAR(6),
-    FOREIGN KEY (userID) REFERENCES User(userID)
+    FOREIGN KEY (userID) REFERENCES "User"(userID)
 );
 
 
@@ -86,7 +86,7 @@ CREATE TABLE CustomizeCategory (
     description VARCHAR(255),
     userID CHAR(6),
     iconID CHAR(6),
-    FOREIGN KEY (userID) REFERENCES User(userID),
+    FOREIGN KEY (userID) REFERENCES "User"(userID),
     FOREIGN KEY (iconID) REFERENCES Icon(iconID)
 );
 
@@ -108,7 +108,7 @@ CREATE TABLE SubCategory (
     userID CHAR(6),
     parentCategoryID CHAR(6),
     iconID CHAR(6),
-    FOREIGN KEY (userID) REFERENCES User(userID),
+    FOREIGN KEY (userID) REFERENCES "User"(userID),
     FOREIGN KEY (parentCategoryID) REFERENCES SubCategory(subCategoryID),
     FOREIGN KEY (iconID) REFERENCES Icon(iconID)
 );
@@ -131,7 +131,7 @@ CREATE TABLE Income (
     paymentType VARCHAR(50),
     userID CHAR(6),
     incomeCategoryID CHAR(6),
-    FOREIGN KEY (userID) REFERENCES User(userID),
+    FOREIGN KEY (userID) REFERENCES "User"(userID),
     FOREIGN KEY (incomeCategoryID) REFERENCES IncomeCategory(incomeCategoryID)
 );
 
@@ -144,7 +144,7 @@ CREATE TABLE Expense (
     paymentType VARCHAR(50),
     userID CHAR(6),
     subCategoryID CHAR(6),
-    FOREIGN KEY (userID) REFERENCES User(userID),
+    FOREIGN KEY (userID) REFERENCES "User"(userID),
     FOREIGN KEY (subCategoryID) REFERENCES SubCategory(subCategoryID)
 );
 
