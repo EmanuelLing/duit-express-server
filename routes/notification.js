@@ -7,17 +7,10 @@ const createResponse = (data = {}, errorCode = 0, message = "") => {
     return { data, errorCode, message };
 };
 
-cloudinary.config({
-    cloud_name: 'disfofeam',
-    api_key: '795999751399832',
-    api_secret: 'Z15uzj4l8SyjGqA-l2YArT2vP70',
-});
+/* ----------------- Financial Aid  -------------------- */
 
 
-/* ----------------- Welfare Program -------------------- */
-
-
-// get welfare notification -> response notification list
+// get financial aid notification -> response notification list
 notificationRouter.get('/', async (req, res) => {
     try {
         const query = `SELECT 
@@ -25,7 +18,7 @@ notificationRouter.get('/', async (req, res) => {
             TO_CHAR(date, 'YYYY-MM-DD') AS date, 
             TO_CHAR(time, 'HH24:MI:SS') AS time, adminid 
             FROM notification
-            WHERE type = 'welfare'`;
+            WHERE NOT (type = 'transaction')`;
         const result = await db.query(query);
 
         if (result.rows.length === 0) {
@@ -40,7 +33,7 @@ notificationRouter.get('/', async (req, res) => {
 });
 
 
-// get welfare notification {date} -> request date, response notification list
+// get financial aid notification {date} -> request date, response notification list
 notificationRouter.get('/date', async (req, res) => {
     try {
         
@@ -61,7 +54,7 @@ notificationRouter.get('/date', async (req, res) => {
                 notificationid, title, type, description, image, 
                 TO_CHAR(date, 'YYYY-MM-DD') AS date, TO_CHAR(time, 'HH24:MI:SS') AS time, adminid 
             FROM notification
-            WHERE date::DATE = $1 AND type = 'welfare'
+            WHERE date::DATE = $1 AND WHERE NOT (type = 'transaction')
         `;
         const values = [date];
         const result = await db.query(query, values);
@@ -77,28 +70,95 @@ notificationRouter.get('/date', async (req, res) => {
     }
 });
 
+// Get all financial aid categories -> response category list
+notificationRouter.get('/categories', async (req, res) => {
+    try {
+        const query = `
+            SELECT financialaidcategoryid, name, icon
+            FROM financialaidcategory
+            ORDER BY name ASC
+        `;
+        const result = await db.query(query);
+
+        if (result.rows.length === 0) {
+            return res.status(404).json(createResponse([], 0, 'No categories found'));
+        }
+
+        res.status(200).json(createResponse(result.rows, 0, 'Categories retrieved successfully'));
+    } catch (error) {
+        console.error('Error fetching financial aid categories:', error.message);
+        res.status(500).json(createResponse(null, -1001, 'Server Error'));
+    }
+});
+
+
+// get financial aid categories {notificationid} -> request notification id, response financial aid category list
+notificationRouter.get('/:notificationid/categories', async (req, res) => {
+    try {
+        const { notificationid } = req.params;
+
+        const query = `
+            SELECT f.financialaidcategoryid, f.name
+            FROM financialaidcategory_notification fn
+            INNER JOIN financialaidcategory f ON fn.financialaidcategoryid = f.financialaidcategoryid
+            WHERE fn.notificationid = $1
+        `;
+        const result = await db.query(query, [notificationid]);
+
+        res.status(200).json(createResponse(result.rows, 0, 'Categories retrieved successfully'));
+    } catch (error) {
+        console.error('Error fetching categories for notification:', error.message);
+        res.status(500).json(createResponse(null, -1001, 'Server Error'));
+    }
+});
+
+// get notifications {financialaidcategoryid} -> request financialid, response notification list
+notificationRouter.get('/category/:financialaidcategoryid', async (req, res) => {
+    try {
+        const { financialaidcategoryid } = req.params;
+
+        const query = `
+            SELECT n.notificationid, n.title, n.type, n.description, n.image,
+                   TO_CHAR(n.date, 'YYYY-MM-DD') AS date, 
+                   TO_CHAR(n.time, 'HH24:MI:SS') AS time, n.adminid
+            FROM financialaidcategory_notification fn
+            INNER JOIN notification n ON fn.notificationid = n.notificationid
+            WHERE fn.financialaidcategoryid = $1
+        `;
+        const result = await db.query(query, [financialaidcategoryid]);
+
+        res.status(200).json(createResponse(result.rows, 0, 'Notifications retrieved successfully'));
+    } catch (error) {
+        console.error('Error fetching notifications for category:', error.message);
+        res.status(500).json(createResponse(null, -1001, 'Server Error'));
+    }
+});
+
+
 // add notification -> request notification details, response success message
 notificationRouter.post('/', async (req, res) => {
     try {
-        const { title, type, description, image, adminid } = req.body;
+        const { title, type, description, image, adminid, financialaidcategoryids } = req.body;
 
         const query = `
         INSERT INTO notification (title, type, description, image, date, time, adminid)
-        VALUES ($1, $2, $3, $4, (CURRENT_DATE AT TIME ZONE 'UTC' AT TIME ZONE 'Asia/Kuala_Lumpur'), (CURRENT_TIME AT TIME ZONE 'UTC' AT TIME ZONE 'Asia/Kuala_Lumpur'), $5)
+        VALUES ($1, $2, $3, $4, (NOW() AT TIME ZONE 'Asia/Kuala_Lumpur')::date, (NOW() AT TIME ZONE 'Asia/Kuala_Lumpur')::time, $5)
         RETURNING notificationid
         `;
-
-            /*
-        const query = `
-            INSERT INTO notification (title, type, description, image, date, time, adminid)
-            VALUES ($1, $2, $3, $4, (NOW() AT TIME ZONE 'UTC' AT TIME ZONE 'Asia/Kuala_Lumpur')::date, (NOW() AT TIME ZONE 'UTC' AT TIME ZONE 'Asia/Kuala_Lumpur')::time, $5)
-            RETURNING notificationid
-        `;*/
-
 
         const values = [title, type, description, image, adminid]; 
         const result = await db.query(query, values);
         const notificationid = result.rows[0].notificationid;
+
+        if (financialaidcategoryids && Array.isArray(financialaidcategoryids) && financialaidcategoryids.length > 0) {
+            const categoryQueries = financialaidcategoryids.map(financialaidcategoryid => {
+                return db.query(`
+                    INSERT INTO financialaidcategory_notification (financialaidcategoryid, notificationid)
+                    VALUES ($1, $2)
+                `, [financialaidcategoryid, notificationid]);
+            });
+            await Promise.all(categoryQueries);
+        }
 
         res.status(201).json(createResponse({ notificationid }, 0, 'Notification added successfully'));
     } catch (error) {
@@ -146,8 +206,15 @@ notificationRouter.put('/:notificationid', async (req, res) => {
             values.push(image);
         }
 
-        const currentDate = new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Kuala_Lumpur' }); // ISO 8601 格式
-        const currentTime = new Date().toLocaleTimeString('en-CA', { timeZone: 'Asia/Kuala_Lumpur', hour12: false });
+        const currentDateQuery = `
+        SELECT 
+            (NOW() AT TIME ZONE 'Asia/Kuala_Lumpur')::date AS current_date,
+            (NOW() AT TIME ZONE 'Asia/Kuala_Lumpur')::time AS current_time
+        `;
+        const currentTimeResult = await db.query(currentDateQuery);
+        const currentDate = currentTimeResult.rows[0].current_date;
+        const currentTime = currentTimeResult.rows[0].current_time;
+
         fieldsToUpdate.push('date = $' + (fieldsToUpdate.length + 1));
         values.push(currentDate);
         fieldsToUpdate.push('time = $' + (fieldsToUpdate.length + 1));
@@ -182,10 +249,45 @@ notificationRouter.put('/:notificationid', async (req, res) => {
     }
 });
 
+// update financial aid category -> request notificationid and financialaids, response success message
+notificationRouter.put('/:notificationid/categories', async (req, res) => {
+    try {
+        const { notificationid } = req.params;
+        const { financialaidcategoryids } = req.body; 
+
+        const deleteQuery = `
+            DELETE FROM financialaidcategory_notification WHERE notificationid = $1
+        `;
+        await db.query(deleteQuery, [notificationid]);
+
+        if (financialaidcategoryids && Array.isArray(financialaidcategoryids) && financialaidcategoryids.length > 0) {
+            const categoryQueries = financialaidcategoryids.map(financialaidcategoryid => {
+                return db.query(`
+                    INSERT INTO financialaidcategory_notification (financialaidcategoryid, notificationid)
+                    VALUES ($1, $2)
+                `, [financialaidcategoryid, notificationid]);
+            });
+            await Promise.all(categoryQueries); 
+        }
+
+        res.status(200).json(createResponse(null, 0, 'Notification categories updated successfully'));
+    } catch (error) {
+        console.error('Error updating notification categories:', error.message);
+        res.status(500).json(createResponse(null, -1001, 'Server Error'));
+    }
+});
+
+
 // delete notification -> request notification id, response success message
 notificationRouter.delete('/:notificationid', async (req, res) => {
     try {
         const { notificationid } = req.params;
+
+        const deleteCategoriesQuery = `
+            DELETE FROM financialaidcategory_notification WHERE notificationid = $1
+        `;
+        await db.query(deleteCategoriesQuery, [notificationid]);
+
         const query = 'DELETE FROM notification WHERE notificationid = $1';
 
         const result = await db.query(query, [notificationid]);
@@ -331,21 +433,28 @@ notificationRouter.post('/check-budget', async (req, res) => {
                     // add notification -> request notification details, response message
                     const notificationQuery = `
                         INSERT INTO notification (title, type, description, date, time)
-                        VALUES ($1, 'transaction', $2, (CURRENT_DATE AT TIME ZONE 'UTC' AT TIME ZONE 'Asia/Kuala_Lumpur'), (CURRENT_TIME AT TIME ZONE 'UTC' AT TIME ZONE 'Asia/Kuala_Lumpur'))
+                        VALUES ($1, 'transaction', $2, (NOW() AT TIME ZONE 'Asia/Kuala_Lumpur')::date, (NOW() AT TIME ZONE 'Asia/Kuala_Lumpur')::time)
                         RETURNING notificationid
                     `;
 
+                    const thresholdMessages = {
+                        50: `Your spending has reached 50% of your budget. It might be a good time to start planning how to manage the remaining funds. Keep track of your expenses and prioritize your needs.`,
+                        70: `You're at 70% of your budget! You may want to reconsider your spending habits. It's a good idea to review your expenses and adjust your plans accordingly.`,
+                        90: `You've hit 90% of your budget! Be cautious with your spending from now on to avoid exceeding your limit. Review upcoming expenses and look for ways to save.`,
+                        100: `Your spending has exceeded your budget! It's crucial to stop and re-evaluate your remaining expenses. You may need to cut back or adjust your financial plans.`,
+                    };
+                    
+                    // Modify the notification description based on the threshold
                     const notificationDescription = `
 Your spending has reached ${threshold}% of your budget: "${budgetName}".
-                        
+                    
 Details:
 - Budget Name: ${budgetName}
 - Total Expense: RM ${totalSpent}
 - Budget Amount: RM ${budgetAmount}
-                        
+                    
 Tips:
-To stay within your budget, you may want to review your spending for the remaining period. Consider cutting down on non-essential expenses or planning your upcoming purchases carefully. 
-Remember, sticking to your budget is key to achieving your financial goals!
+${thresholdMessages[threshold]}
 `;
                     
                     const notificationValues = [

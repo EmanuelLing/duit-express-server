@@ -14,6 +14,7 @@ const createResponse = (data = {}, errorCode = 0, message = "") => {
 };
 
 // login -> request email & password, response admin data & token
+// can use email:alice.smith@example.com password:123 to login
 adminRouter.post('/login', async (req, res) => {
     try {
         const { email, password } = req.body;
@@ -193,7 +194,6 @@ adminRouter.put('/password/:adminid', async (req, res) => {
         const { adminid } = req.params;
         const { currentPassword, newPassword } = req.body;
 
-        // 查询当前admin的已加密密码
         const result = await db.query("SELECT password FROM admin WHERE adminid = $1", [adminid]);
         const storedEncryptedPassword = result.rows[0]?.password;
 
@@ -201,15 +201,13 @@ adminRouter.put('/password/:adminid', async (req, res) => {
             return res.status(404).json(createResponse(null, -1, 'Admin not found'));
         }
 
-        // 使用 bcrypt 或 sha256 对输入的 currentPassword 进行加密
         const isPasswordMatch = await bcrypt.compare(currentPassword, storedEncryptedPassword);
 
         if (!isPasswordMatch) {
             return res.status(400).json(createResponse(null, -1, 'Current password is incorrect'));
         }
 
-        // 更新新密码
-        const newEncryptedPassword = await bcrypt.hash(newPassword, 10); // 加密新的密码
+        const newEncryptedPassword = await bcrypt.hash(newPassword, 10); 
         const result2 = await db.query("UPDATE admin SET password = $1 WHERE adminid = $2", [newEncryptedPassword, adminid]);
 
         if (result2.rowCount > 0) {

@@ -148,3 +148,12 @@ CREATE TABLE Expense (
     FOREIGN KEY (subCategoryID) REFERENCES SubCategory(subCategoryID)
 );
 
+-- bridge table to display income and expense
+CREATE TABLE Transaction(
+    incomeID CHAR(6),
+    expenseID CHAR(6),
+    PRIMARY KEY (incomeID, expenseID),
+    FOREIGN KEY (incomeID) REFERENCES Income(incomeID),
+    FOREIGN KEY (expenseID) REFERENCES Expense(expenseID)
+);
+
