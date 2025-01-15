@@ -10,14 +10,18 @@ const port = process.env.PORT || 3000;
 
 const adminRouter = require('./routes/admin.js');
 const notificationRouter = require('./routes/notification.js');
+const categoryRouter = require('./routes/category');
+const budgetRouter = require('./routes/budget');
+const expenseRouter = require('./routes/expense');
+const analysisRouter = require('./routes/analysis');
 
 const corsOptions = {
-  origin: '*', 
-  methods: ['GET', 'POST', 'PUT', 'DELETE'], 
-  allowedHeaders: ['Content-Type', 'Authorization'], 
+  origin: '*', 
+  methods: ['GET', 'POST', 'PUT', 'DELETE'], 
+  allowedHeaders: ['Content-Type', 'Authorization'], 
 };
 
-app.use(cors(corsOptions)); 
+app.use(cors(corsOptions));
 
 // parse json
 // Increase payload size limit to 10MB
@@ -35,8 +39,13 @@ app.get('/', (req, res) => {
   res.send('Hello, world!');
 });
 
+
 app.use('/admin',adminRouter);
 app.use('/notification',notificationRouter);
+app.use('/category', categoryRouter);
+app.use('/budget', budgetRouter);
+app.use('/expense', expenseRouter);
+app.use('/analysis', analysisRouter);
 
 // start up server
 app.listen(port, () => {
