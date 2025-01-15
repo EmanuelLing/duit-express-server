@@ -1,6 +1,6 @@
 const express = require('express');
-const router = express.Router();
-const db = require('../db');
+const profileRouter = express.Router();
+const db = require('./../db');
 const multer = require('multer');
 const sharp = require('sharp');
 
@@ -9,7 +9,7 @@ const upload = multer({
   limits: { fileSize: 10 * 1024 * 1024 }, 
 });
 
-router.put('/update-profile/:userid', async (req, res) => {
+profileRouter.put('/update-profile/:userid', async (req, res) => {
   const { userid } = req.params;
   const { name, address, phonenumber, email } = req.body;
 
@@ -38,7 +38,7 @@ router.put('/update-profile/:userid', async (req, res) => {
   }
 });
 
-router.post(
+profileRouter.post(
   '/update-profile-image/:userid',
   upload.single('personalImage'),
   async (req, res) => {
@@ -68,7 +68,7 @@ router.post(
   }
 );
 
-router.get('/get-profile-image/:userid', async (req, res) => {
+profileRouter.get('/get-profile-image/:userid', async (req, res) => {
   const { userid } = req.params;
 
   if (!userid || isNaN(userid) || userid <= 0) {
@@ -102,4 +102,4 @@ router.get('/get-profile-image/:userid', async (req, res) => {
 
 
 
-module.exports = router;
+module.exports = profileRouter;

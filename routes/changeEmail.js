@@ -1,8 +1,8 @@
 const express = require('express');
-const router = express.Router();
-const pool = require('../db'); 
+const changeEmailRouter = express.Router();
+const pool = require('./../db'); 
 
-router.post('/change-email', async (req, res) => {
+changeEmailRouter.post('/change-email', async (req, res) => {
   const { userId, oldEmail, newEmail } = req.body;
 
   try {
@@ -44,4 +44,4 @@ router.post('/change-email', async (req, res) => {
   }
 });
 
-module.exports = router;
+module.exports = changeEmailRouter;

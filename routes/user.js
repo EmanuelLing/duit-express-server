@@ -1,8 +1,8 @@
 const express = require('express');
-const router = express.Router();
-const db = require('../db'); 
+const userRouter = express.Router();
+const db = require('./../db'); 
 
-router.get('/user/:userid', async (req, res) => {
+userRouter.get('/user/:userid', async (req, res) => {
   const { userid } = req.params;
 
   try {
@@ -22,4 +22,4 @@ router.get('/user/:userid', async (req, res) => {
   }
 });
 
-module.exports = router;
+module.exports = userRouter;

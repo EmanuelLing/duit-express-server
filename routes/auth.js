@@ -1,9 +1,9 @@
 const express = require('express');
-const db = require('../db'); 
+const db = require('./../db'); 
 
-const router = express.Router();
+const authRouter = express.Router();
 
-router.post('/change-password', async (req, res) => {
+authRouter.post('/change-password', async (req, res) => {
   const { userid, currentPassword, newPassword } = req.body;
 
   console.log('Received UserID:', userid);
@@ -37,4 +37,4 @@ router.post('/change-password', async (req, res) => {
   }
 });
 
-module.exports = router;
+module.exports = authRouter;
