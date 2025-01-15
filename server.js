@@ -7,6 +7,13 @@ const cors = require('cors');
 
 // set up port
 const port = process.env.PORT || 3000;
+const basic_categories = require('./routes/categories.js');
+const income_categories_router = require('./routes/incomeCategories');
+const income_router = require('./routes/income');
+const ExpenseListRouter = require('./routes/expense.js');
+const icons_router = require('./routes/icons.js'); 
+const subcategories_router = require('./routes/subcategories.js');
+const transactionList_router = require('./routes/transactions.js');
 
 const adminRouter = require('./routes/admin.js');
 const notificationRouter = require('./routes/notification.js');
@@ -39,6 +46,14 @@ app.use((req, res, next) => {
   console.log(`Payload size: ${req.headers['content-length']} bytes`);
   next();
 });
+
+app.use('/categories',basic_categories);
+app.use('/incomeCategories',income_categories_router);
+app.use('/income',income_router);
+app.use('/expense',ExpenseListRouter);
+app.use('/icons', icons_router); 
+app.use('/subcategories',subcategories_router);
+app.use('/transactions', transactionList_router);
 
 app.get('/', (req, res) => {
   res.send('Hello, world!');
