@@ -47,6 +47,8 @@ budgetRouter.get('/', (req, res) => {
     b.userid = $1 
   GROUP BY 
     b.budgetid, b.amount, b.startdate, b.recurrence, b.userid, b.budgetname
+  ORDER BY
+    b.startdate DESC
 `;
 
     db.query(query, [userid], (error, results) => {
@@ -126,7 +128,7 @@ budgetRouter.post('/categories', async (req, res) => {
 budgetRouter.post('/budgetandcategory', (req, res) => {
     const {budgetname, amount, startdate, recurrence, userid, basiccategoryid} = req.body;
 
-    db.query('SELECT b.budgetid, b.budgetname, b.startdate, bbc.basiccategoryid FROM budget b JOIN budgetbasiccategory bbc ON b.budgetid = bbc.budgetid WHERE b.startdate = $1 AND bbc.basiccategoryid = $2', [startdate, basiccategoryid], (error, results) => {
+    db.query('SELECT b.budgetid, b.budgetname, b.startdate, bbc.basiccategoryid FROM budget b JOIN budgetbasiccategory bbc ON b.budgetid = bbc.budgetid WHERE b.startdate = $1 AND bbc.basiccategoryid = $2 AND b.userid = $3', [startdate, basiccategoryid, userid], (error, results) => {
         if (error) {
             return res.status(500).send({error: error.message});
         }

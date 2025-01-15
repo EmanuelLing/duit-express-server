@@ -10,10 +10,15 @@ const port = process.env.PORT || 3000;
 
 const adminRouter = require('./routes/admin.js');
 const notificationRouter = require('./routes/notification.js');
-const categoryRouter = require('./routes/category');
-const budgetRouter = require('./routes/budget');
-const expenseRouter = require('./routes/expense');
-const analysisRouter = require('./routes/analysis');
+const categoryRouter = require('./routes/category.js');
+const budgetRouter = require('./routes/budget.js');
+const expenseRouter = require('./routes/expense.js');
+const analysisRouter = require('./routes/analysis.js');
+const appuserRouter = require('./routes/appuser.js');
+const authRouter = require('./routes/auth.js');
+const changeEmailRouter = require('./routes/changeEmail.js');
+const profileRouter = require('./routes/profile.js');
+const userRouter = require('./routes/user.js');
 
 const corsOptions = {
   origin: '*', 
@@ -46,6 +51,11 @@ app.use('/category', categoryRouter);
 app.use('/budget', budgetRouter);
 app.use('/expense', expenseRouter);
 app.use('/analysis', analysisRouter);
+app.use('/appuser', appuserRouter);
+app.use('/auth', authRouter);
+app.use('/changeEmail', changeEmailRouter);
+app.use('/profile', profileRouter);
+app.use('/user', userRouter);
 
 // start up server
 app.listen(port, () => {

@@ -12,7 +12,31 @@ analysisRouter.get('/', (req, res) => {
     const month = formateddate.getMonth() + 1; // Months are zero-indexed (January is 0)
     const year = formateddate.getFullYear();
 
-    const query = 'SELECT bc.name AS category_name, COALESCE(b.amount, 0) AS budget_amount, COALESCE(SUM(e.amount), 0) AS expense_amount FROM basiccategory bc LEFT JOIN budgetbasiccategory bbc ON bc.basiccategoryid = bbc.basiccategoryid LEFT JOIN budget b ON bbc.budgetid = b.budgetid AND b.userid = $1 LEFT JOIN expense e ON bc.basiccategoryid = e.subcategoryid AND e.userid = $1 AND EXTRACT(MONTH FROM e.date) = $2 AND EXTRACT(YEAR FROM e.date) = $3 WHERE b.userid = $1 AND EXTRACT(MONTH FROM b.startdate) = $2 AND EXTRACT(YEAR FROM b.startdate) = $3 GROUP BY bc.basiccategoryid, bc.name, b.amount ORDER BY bc.name';
+    const query = `SELECT 
+    bc.name AS category_name, 
+    COALESCE(b.amount, 0) AS budget_amount, 
+    COALESCE(SUM(e.amount), 0) AS expense_amount
+FROM 
+    basiccategory bc
+LEFT JOIN 
+    budgetbasiccategory bbc ON bc.basiccategoryid = bbc.basiccategoryid
+LEFT JOIN 
+    budget b ON bbc.budgetid = b.budgetid AND b.userid = $1
+LEFT JOIN 
+    subcategory sc ON bc.basiccategoryid = sc.parentcategoryid
+LEFT JOIN 
+    expense e ON sc.subcategoryid = e.subcategoryid 
+               AND e.userid = 1 
+               AND EXTRACT(MONTH FROM e.date) = $2
+               AND EXTRACT(YEAR FROM e.date) = $3
+WHERE 
+    b.userid = $1
+    AND EXTRACT(MONTH FROM b.startdate) = $2
+    AND EXTRACT(YEAR FROM b.startdate) = $3
+GROUP BY 
+    bc.basiccategoryid, bc.name, b.amount
+ORDER BY 
+    bc.name;`;
 
     db.query(query, [userid, month, year], (error, results) => {
         if (error) {
