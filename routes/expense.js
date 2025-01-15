@@ -1,12 +1,12 @@
 const express = require('express'); // to create a web server and manage routing
-const ExpenseListRouter = express.Router(); // a router instance to handle routes specific to insight.
+const expenseRouter = express.Router(); // a router instance to handle routes specific to insight.
 // Modularizes the code, making it more maintainable
 
 // database connection
-const db = require('../db');
+const db = require('./../db');
 
 // fetch data for expense
-ExpenseListRouter.get('/', (req, res) => {
+expenseRouter.get('/', (req, res) => {
     const query = `
     SELECT 
     e.*,                           -- Select all columns from the expense table
@@ -47,7 +47,7 @@ ExpenseListRouter.get('/', (req, res) => {
 });
 
 // add expense to database
-ExpenseListRouter.post('/', (req, res) => {
+expenseRouter.post('/', (req, res) => {
     const { amount, date, description, paymenttype, userid, subcategoryid } = req.body;
 
     // Check if all required fields are provided
@@ -87,7 +87,7 @@ ExpenseListRouter.post('/', (req, res) => {
 });
 
 // Update an expense in the database
-ExpenseListRouter.put('/:id', (req, res) => {
+expenseRouter.put('/:id', (req, res) => {
     const expenseId = req.params.id; // Extract the expense ID from the route parameter
     const { amount, date, description, paymenttype, userid, subcategoryid } = req.body;
 
@@ -145,7 +145,7 @@ ExpenseListRouter.put('/:id', (req, res) => {
 });
 
 // Delete an expense from the database
-ExpenseListRouter.delete('/:id', (req, res) => {
+expenseRouter.delete('/:id', (req, res) => {
     const expenseId = req.params.id; // Extract the expense ID from the route parameter
 
     // Check if the expenseId is provided
@@ -191,6 +191,66 @@ ExpenseListRouter.delete('/:id', (req, res) => {
     });
 });
 
+expenseRouter.get('/specific', (req, res) => {
+    const {userid, date} = req.query;
 
+    const formateddate = new Date(date);
 
-module.exports = ExpenseListRouter;
+    const month = formateddate.getMonth() + 1; // Months are zero-indexed (January is 0)
+    const year = formateddate.getFullYear();
+
+    const query = 'SELECT e.expenseid, e.amount, e.date, e.description, e.paymenttype, e.userid, e.subcategoryid, s.parentcategoryid FROM expense e JOIN subcategory s ON e.subcategoryid = s.subcategoryid WHERE e.userid = $1 AND EXTRACT(MONTH FROM e.date) = $2 AND EXTRACT(YEAR FROM e.date) = $3';
+
+    db.query(query, [userid, month, year], (error, results) => {
+        if (error) {
+            return res.status(500).send({error: error.message});
+        }
+        else if (results.rows.length == 0) {
+            return res.status(404).send({error: 'no expense found'});
+        }
+        else {
+            res.status(200).send({expenses: results.rows});
+        }
+    });
+});
+
+expenseRouter.get('/budget', (req, res) => {
+    const {userid, categoryids, date} = req.query;
+
+    const categoryIdsArray = categoryids.split(',').map(Number);
+
+    const formateddate = new Date(date);
+
+    const month = formateddate.getMonth() + 1; // Months are zero-indexed (January is 0)
+    const year = formateddate.getFullYear();
+
+    const query = `
+        SELECT 
+    bc.basiccategoryid,
+    SUM(e.amount) AS total_amount
+FROM 
+    basiccategory bc
+LEFT JOIN 
+    subcategory sc ON bc.basiccategoryid = sc.parentcategoryid
+LEFT JOIN 
+    expense e ON sc.subcategoryid = e.subcategoryid
+WHERE 
+    e.userid = $1
+	AND bc.basiccategoryid = ANY($2) 
+	AND EXTRACT(MONTH FROM e.date) = $3
+	AND EXTRACT(YEAR FROM e.date) = $4
+GROUP BY 
+    bc.basiccategoryid;
+    `;
+
+    db.query(query, [userid, categoryIdsArray, month, year], (error, results) => {
+        if (error) {
+            return res.status(500).send({error: error.message});
+        }
+        else {
+            res.status(200).send({expenses: results.rows});
+        }
+    });
+});
+
+module.exports = expenseRouter;
