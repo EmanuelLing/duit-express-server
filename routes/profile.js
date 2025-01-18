@@ -10,94 +10,56 @@ const upload = multer({
 });
 
 profileRouter.put('/update-profile/:userid', async (req, res) => {
-  const { userid } = req.params;
-  const { name, address, phonenumber, email } = req.body;
-
-  if (!userid || isNaN(userid) || userid <= 0) {
-    return res.status(400).json({ message: 'Invalid user ID' });
-  }
-
-  try {
-    const updateResult = await db.query(
-      'UPDATE appuser SET name = $1, address = $2, phonenumber = $3, email = $4 WHERE userid = $5',
-      [name, address, phonenumber, email, userid]
-    );
-
-    if (updateResult.rowCount === 0) {
-      return res.status(404).json({ message: 'User not found' });
-    }
-
-    const selectResult = await db.query('SELECT * FROM appuser WHERE userid = $1', [userid]);
-    res.status(200).json({
-      message: 'Profile updated successfully',
-      user: selectResult.rows[0],
-    });
-  } catch (error) {
-    console.error('[ERROR] Updating profile failed:', error);
-    res.status(500).json({ error: 'Server error' });
-  }
-});
-
-profileRouter.post(
-  '/update-profile-image/:userid',
-  upload.single('personalImage'),
-  async (req, res) => {
     const { userid } = req.params;
-
+    const { name, phonenumber, address } = req.body;
+  
     if (!userid || isNaN(userid) || userid <= 0) {
-      return res.status(400).json({ message: 'Invalid user ID' });
+      return res.status(400).json({ message: 'Invalid user ID provided.' });
     }
-
-    if (!req.file) {
-      return res.status(400).json({ message: 'Image file is required' });
+  
+    if (!name || name.trim().length < 3) {
+      return res.status(400).json({ message: 'Name must have at least 3 characters.' });
     }
-
+  
+    const phonePattern = /^\+?[0-9]{1,4}?[0-9]{7,15}$/;
+    if (!phonenumber || !phonePattern.test(phonenumber)) {
+      return res.status(400).json({ message: 'Invalid phone number format. Please check and try again.' });
+    }
+  
+    const addressPattern = /^No\.\d{1,4}\s[A-Za-z0-9\s]+,\s[A-Za-z0-9\s]+,\s\d{5},\s[A-Za-z\s]+$/;
+    if (!address || !addressPattern.test(address)) {
+      return res.status(400).json({
+        message: 'Address must be valid (e.g., No.1234 Jalan 2, Taman, 76100, Melaka).',
+      });
+    }
+  
     try {
-      const compressedImageBuffer = await sharp(req.file.buffer)
-        .resize({ width: 300 }) 
-        .jpeg({ quality: 70 }) 
-        .toBuffer();
-
-      await db.query('UPDATE appuser SET personalimage = $1 WHERE userid = $2', [compressedImageBuffer, userid]);
-
-      res.status(200).json({ message: 'Profile image updated successfully' });
+      console.log('[DEBUG] Update Request:', {
+        userid,
+        name,
+        phonenumber,
+        address,
+      });
+  
+      const updateResult = await db.query(
+        'UPDATE appuser SET name = $1, address = $2, phonenumber = $3 WHERE userid = $4',
+        [name, address, phonenumber, userid]
+      );
+  
+      if (updateResult.rowCount === 0) {
+        return res.status(404).json({ message: 'User not found or no changes made.' });
+      }
+  
+      const selectResult = await db.query('SELECT * FROM appuser WHERE userid = $1', [userid]);
+  
+      res.status(200).json({
+        message: 'Profile updated successfully',
+        user: selectResult.rows[0],
+      });
     } catch (error) {
-      console.error('[ERROR] Updating profile image:', error);
-      res.status(500).json({ error: 'Server error' });
+      console.error('[ERROR] Updating profile failed:', error);
+      res.status(500).json({ error: 'An internal server error occurred. Please try again later.' });
     }
-  }
-);
-
-profileRouter.get('/get-profile-image/:userid', async (req, res) => {
-  const { userid } = req.params;
-
-  if (!userid || isNaN(userid) || userid <= 0) {
-    return res.status(400).json({ message: 'Invalid user ID' });
-  }
-
-  try {
-    const result = await db.query('SELECT personalimage FROM appuser WHERE userid = $1', [userid]);
-
-    if (result.rows.length === 0) {
-      return res.status(404).json({ message: 'User not found' });
-    }
-
-    const binaryImage = result.rows[0].personalimage;
-
-    if (!binaryImage) {
-      return res.status(404).json({ message: 'Image not found' });
-    }
-
-    res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
-    res.setHeader('Pragma', 'no-cache');
-    res.setHeader('Expires', '0');
-    res.setHeader('Surrogate-Control', 'no-store');
-
-    res.status(200).send(binaryImage);
-  } catch (error) {
-    console.error('[ERROR] Retrieving profile image:', error);
-    res.status(500).json({ error: 'Server error' });
-  }
 });
 
 
