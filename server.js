@@ -41,12 +41,6 @@ app.use(express.json({limit: '10mb'}));
 app.use(express.urlencoded({ limit: '10mb', extended: true }));
 
 
-// Log request size
-app.use((req, res, next) => {
-  console.log(`Payload size: ${req.headers['content-length']} bytes`);
-  next();
-});
-
 app.use('/categories',basic_categories);
 app.use('/incomeCategories',income_categories_router);
 app.use('/income',income_router);
