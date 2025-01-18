@@ -1,7 +1,6 @@
 const express = require('express');
 const notificationRouter = express.Router();
 const db = require('./../db');
-const cloudinary = require('cloudinary').v2;
 
 const createResponse = (data = {}, errorCode = 0, message = "") => {
     return { data, errorCode, message };
@@ -54,7 +53,7 @@ notificationRouter.get('/date', async (req, res) => {
                 notificationid, title, type, description, image, 
                 TO_CHAR(date, 'YYYY-MM-DD') AS date, TO_CHAR(time, 'HH24:MI:SS') AS time, adminid 
             FROM notification
-            WHERE date::DATE = $1 AND WHERE NOT (type = 'transaction')
+            WHERE date::DATE = $1 AND NOT (type = 'transaction')
         `;
         const values = [date];
         const result = await db.query(query, values);
@@ -341,8 +340,39 @@ notificationRouter.post('/check-budget', async (req, res) => {
 
         console.log('Starting budget query for UserID:', userid);
 
+        // delete expired transaction alert (based on current month)
+        const deleteQuery = `
+        DELETE FROM notification n
+        USING usernotification un
+        WHERE n.notificationid = un.notificationid
+        AND n.type = 'transaction'
+        AND n.date < date_trunc('month', NOW() AT TIME ZONE 'Asia/Kuala_Lumpur')::date
+        AND un.userid = $1
+        `;
+
+        try {
+            const deleteResult = await db.query(deleteQuery, [userid]);
+
+            if (deleteResult.rowCount === 0) {
+                console.log('No expired transaction alerts to delete.');
+            } else {
+                console.log(`Deleted ${deleteResult.rowCount} expired transaction alerts.`);
+            }
+        } catch (error) {
+            console.error('Error executing delete query:', error.message);
+            return res.status(500).json({ message: 'Error deleting expired transaction alerts' });
+        }
+
+        console.log('Expired transaction alerts deleted successfully.');
+
+
         // get budget
-        const budgetQuery = `SELECT budgetid, amount, budgetname FROM budget WHERE userid = $1`;
+        const budgetQuery = `
+            SELECT budgetid, amount, budgetname FROM budget 
+            WHERE userid = $1
+            AND startdate <= date_trunc('month', NOW() AT TIME ZONE 'Asia/Kuala_Lumpur') + interval '1 month'
+            AND startdate >= date_trunc('month', NOW() AT TIME ZONE 'Asia/Kuala_Lumpur');
+        `;
         let budgetResult;
         try {
             budgetResult = await db.query(budgetQuery, [userid]);
@@ -365,30 +395,33 @@ notificationRouter.post('/check-budget', async (req, res) => {
 
             // get expense in budget -> request userID & budgetID, response sum of amount
             const expenseQuery = `
-                SELECT COALESCE(SUM(e.amount), 0) AS totalSpent
-                FROM expense e
-                WHERE e.userid = $1
-                AND (
-                    EXISTS (
-                        -- Customize Category Path
-                        SELECT 1
-                        FROM subcategory sc
-                        JOIN customizecategory cc ON sc.parentcategoryid = cc.customizecategoryid
-                        JOIN budgetcustomizecategory bcc ON cc.customizecategoryid = bcc.customizecategoryid
-                        WHERE sc.subcategoryid = e.subcategoryid
-                        AND bcc.budgetid = $2
-                    )
-                    OR
-                    EXISTS (
-                        -- Basic Category Path
-                        SELECT 1
-                        FROM subcategory sc
-                        JOIN basiccategory bc ON sc.parentcategoryid = bc.basiccategoryid
-                        JOIN budgetbasiccategory bbc ON bc.basiccategoryid = bbc.basiccategoryid
-                        WHERE sc.subcategoryid = e.subcategoryid
-                        AND bbc.budgetid = $2
-                    )
-                );
+SELECT COALESCE(SUM(e.amount), 0) AS totalSpent
+FROM expense e
+WHERE e.userid = $1
+AND (
+    EXISTS (
+        -- Customize Category Path
+        SELECT 1
+        FROM subcategory sc
+        JOIN customizecategory cc ON sc.parentcategoryid = cc.customizecategoryid
+        JOIN budgetcustomizecategory bcc ON cc.customizecategoryid = bcc.customizecategoryid
+        WHERE sc.subcategoryid = e.subcategoryid
+        AND bcc.budgetid = $2
+    )
+    OR
+    EXISTS (
+        -- Basic Category Path
+        SELECT 1
+        FROM subcategory sc
+        JOIN basiccategory bc ON sc.parentcategoryid = bc.basiccategoryid
+        JOIN budgetbasiccategory bbc ON bc.basiccategoryid = bbc.basiccategoryid
+        WHERE sc.subcategoryid = e.subcategoryid
+        AND bbc.budgetid = $2
+    )
+)
+AND e.date >= date_trunc('month', NOW() AT TIME ZONE 'Asia/Kuala_Lumpur')
+AND e.date < date_trunc('month', NOW() AT TIME ZONE 'Asia/Kuala_Lumpur') + interval '1 month';
+
 
             `;
             let expenseResult;
@@ -409,8 +442,10 @@ notificationRouter.post('/check-budget', async (req, res) => {
             const reachedThresholds = thresholds.filter(threshold => percentage >= threshold);
 
 
-            for (const threshold of reachedThresholds) {
-                console.log(`Threshold reached: ${threshold}%`);
+            if (reachedThresholds.length > 0) {
+                // generate the highest only
+                const maxThreshold = Math.max(...reachedThresholds);
+                console.log(`Highest threshold reached: ${maxThreshold}%`);
 
                 // check if notification already exists
                 // get notification -> request title & userID
@@ -421,14 +456,14 @@ notificationRouter.post('/check-budget', async (req, res) => {
                 `;
                 let checkResult;
                 try {
-                    checkResult = await db.query(notificationCheckQuery, [`Budget "${budgetName}" reached ${threshold}%`, userid]);
+                    checkResult = await db.query(notificationCheckQuery, [`Budget "${budgetName}" reached ${maxThreshold}%`, userid]);
                 } catch (error) {
                     console.error('Error executing notification check query:', error.message);
                     return res.status(500).json({ message: 'Error checking notifications' });
                 }
 
                 if (checkResult.rows.length === 0) {
-                    console.log(`No existing notification for threshold ${threshold}%. Creating new notification.`);
+                    console.log(`No existing notification for threshold ${maxThreshold}%. Creating new notification.`);
 
                     // add notification -> request notification details, response message
                     const notificationQuery = `
@@ -443,10 +478,15 @@ notificationRouter.post('/check-budget', async (req, res) => {
                         90: `You've hit 90% of your budget! Be cautious with your spending from now on to avoid exceeding your limit. Review upcoming expenses and look for ways to save.`,
                         100: `Your spending has exceeded your budget! It's crucial to stop and re-evaluate your remaining expenses. You may need to cut back or adjust your financial plans.`,
                     };
+
+                    const nextMonthFirstDay = new Date();
+                    nextMonthFirstDay.setMonth(nextMonthFirstDay.getMonth() + 1);
+                    nextMonthFirstDay.setDate(1);
+                    const deletionDate = nextMonthFirstDay.toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' });
                     
                     // Modify the notification description based on the threshold
                     const notificationDescription = `
-Your spending has reached ${threshold}% of your budget: "${budgetName}".
+Your spending has reached ${maxThreshold}% of your budget: "${budgetName}".
                     
 Details:
 - Budget Name: ${budgetName}
@@ -454,11 +494,14 @@ Details:
 - Budget Amount: RM ${budgetAmount}
                     
 Tips:
-${thresholdMessages[threshold]}
+${thresholdMessages[maxThreshold]}
+
+Note:
+This notification will be automatically deleted on ${deletionDate}.
 `;
                     
                     const notificationValues = [
-                        `Budget "${budgetName}" reached ${threshold}%`,
+                        `Budget "${budgetName}" reached ${maxThreshold}%`,
                         notificationDescription
                     ];
 
@@ -484,9 +527,9 @@ ${thresholdMessages[threshold]}
                         return res.status(500).json({ message: 'Error linking notification to user' });
                     }
 
-                    console.log(`Notification created and linked for threshold ${threshold}%`);
+                    console.log(`Notification created and linked for threshold ${maxThreshold}%`);
                 } else {
-                    console.log(`Notification for threshold ${threshold}% already exists.`);
+                    console.log(`Notification for threshold ${maxThreshold}% already exists.`);
                 }
             }
         }
