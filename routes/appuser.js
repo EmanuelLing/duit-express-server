@@ -47,7 +47,6 @@ appuserRouter.post('/signup', async (req, res) => {
   }
 });
 
-
 // Route to handle email status
 appuserRouter.post('/passrecovery', async (req, res) => {
   const { email} = req.body;
@@ -68,5 +67,56 @@ appuserRouter.post('/passrecovery', async (req, res) => {
     res.status(500).json({ message: 'Internal server error' });
   }
 });
+
+// Route to fetch user details by email
+
+appuserRouter.get('/email/:email', async (req, res) => {
+  const { email } = req.params;
+
+  try {
+    const client = await pool.connect();
+    const query = 'SELECT * FROM public.appuser WHERE email = $1';
+    const result = await client.query(query, [email]);
+    client.release();
+
+    if (result.rows.length > 0) {
+      // Flatten the personalimage field if it exists
+      const user = result.rows[0];
+      if (user.personalimage) {
+        user.personalimage = user.personalimage.toString('base64'); // Return Base64 string
+      }
+      res.status(200).json({ user });
+    } else {
+      res.status(404).json({ message: 'User not found' });
+    }
+  } catch (error) {
+    console.error('Error executing query', error.stack);
+    res.status(500).json({ message: 'Internal server error' });
+  }
+});
+/*
+appuserRouter.get('/user/email/:email', async (req, res) => {
+  const { email } = req.params;
+
+  try {
+    const client = await pool.connect();
+    const query = `SELECT userid, password, name, email, phonenumber, address, adminid
+    FROM public.appuser
+    WHERE email = $1;
+    `;
+    const result = await client.query(query, [email]);
+    client.release();
+
+    if (result.rows.length > 0) {
+      res.status(200).json({ user: result.rows[0] });
+    } else {c
+      res.status(404).json({ message: 'User not found' });
+    }
+  } catch (error) {
+    console.error('Error executing query', error.stack);
+    res.status(500).json({ message: 'Internal server error' });
+  }
+});
+*/
 
 module.exports = appuserRouter;
