@@ -1,6 +1,7 @@
 const express = require('express');
 const notificationRouter = express.Router();
 const db = require('./../db');
+const pusher = require('./../pusher');
 
 const createResponse = (data = {}, errorCode = 0, message = "") => {
     return { data, errorCode, message };
@@ -148,6 +149,17 @@ notificationRouter.post('/', async (req, res) => {
         const values = [title, type, description, image, adminid]; 
         const result = await db.query(query, values);
         const notificationid = result.rows[0].notificationid;
+
+        pusher.trigger('notifications', 'new_notification', {
+            notificationid,
+            title,
+            description,
+            image,
+        }).then(() => {
+            console.log('Pusher notification sent successfully');
+        }).catch((error) => {
+            console.error('Error sending Pusher notification:', error);
+        });
 
         if (financialaidcategoryids && Array.isArray(financialaidcategoryids) && financialaidcategoryids.length > 0) {
             const categoryQueries = financialaidcategoryids.map(financialaidcategoryid => {
