@@ -48,6 +48,28 @@ appuserRouter.post('/signup', async (req, res) => {
 });
 
 
+// Endpoint to fetch user details by email
+appuserRouter.get('/email/:email', async (req, res) => {
+  const email = req.params.email;
+
+  try {
+    // Query to fetch user details
+    const query = 'SELECT * FROM appuser WHERE email = $1';
+    const values = [email];
+
+    const result = await pool.query(query, values);
+
+    if (result.rows.length > 0) {
+      res.status(200).json({ user: result.rows[0] }); // Wrap in a `user` key
+    } else {
+      res.status(404).json({ message: 'User not found' });
+    }
+  } catch (error) {
+    console.error('Error fetching user details:', error);
+    res.status(500).json({ message: 'Internal server error' });
+  }
+});
+
 // Route to handle email status
 appuserRouter.post('/passrecovery', async (req, res) => {
   const { email} = req.body;
