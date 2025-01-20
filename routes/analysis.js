@@ -13,13 +13,18 @@ analysisRouter.get('/', (req, res) => {
     const year = formateddate.getFullYear();
 
     const query = `SELECT 
-    bc.name AS category_name, 
+    bc.name AS category_name,
+    i.codepoint,
+    i.fontfamily,
+    i.color, 
     COALESCE(b.amount, 0) AS budget_amount, 
     COALESCE(SUM(e.amount), 0) AS expense_amount
 FROM 
     basiccategory bc
 LEFT JOIN 
     budgetbasiccategory bbc ON bc.basiccategoryid = bbc.basiccategoryid
+LEFT JOIN
+	icon i ON bc.iconid = i.iconid
 LEFT JOIN 
     budget b ON bbc.budgetid = b.budgetid AND b.userid = $1
 LEFT JOIN 
@@ -34,7 +39,7 @@ WHERE
     AND EXTRACT(MONTH FROM b.startdate) = $2
     AND EXTRACT(YEAR FROM b.startdate) = $3
 GROUP BY 
-    bc.basiccategoryid, bc.name, b.amount
+    bc.basiccategoryid, bc.name, i.iconid, b.amount
 ORDER BY 
     bc.name;`;
 
