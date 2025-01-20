@@ -44,6 +44,29 @@ income_router.post('/', (req, res) => {
     });
 });
 
+income_router.get('/:id', (req, res) => {
+    const userId = req.params.id;
+
+    const query = `
+        SELECT * FROM income 
+        WHERE userid = $1
+    `;
+
+    db.query(query, [userId], (error, results) => {
+        if (error) {
+            console.error('Database error:', error);
+            return res.status(500).send({ error: 'Database error' });
+        }
+        console.log('Fetched Income:', results.rows);
+        if (results.rows.length > 0) {
+            res.status(200).json(results.rows); // Send the income data as JSON
+        } else {
+            res.status(404).send({ error: 'No income records found' });
+        }
+    });
+});
+
+
 // Update an income in the database
 income_router.put('/:id', (req, res) => {
     const incomeId = req.params.id; // Extract the income ID from the route parameter
