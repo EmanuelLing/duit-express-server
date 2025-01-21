@@ -4,9 +4,47 @@ const expenseRouter = express.Router(); // a router instance to handle routes sp
 
 // database connection
 const db = require('./../db');
+expenseRouter.get('/budget', (req, res) => {
+    const {userid, categoryids, date} = req.query;
+
+    const categoryIdsArray = categoryids.split(',').map(Number);
+
+    const formateddate = new Date(date);
+
+    const month = formateddate.getMonth() + 1; // Months are zero-indexed (January is 0)
+    const year = formateddate.getFullYear();
+
+    const query = `
+        SELECT 
+    bc.basiccategoryid,
+    SUM(e.amount) AS total_amount
+FROM 
+    basiccategory bc
+LEFT JOIN 
+    subcategory sc ON bc.basiccategoryid = sc.parentcategoryid
+LEFT JOIN 
+    expense e ON sc.subcategoryid = e.subcategoryid
+WHERE 
+    e.userid = $1
+	AND bc.basiccategoryid = ANY($2) 
+	AND EXTRACT(MONTH FROM e.date) = $3
+	AND EXTRACT(YEAR FROM e.date) = $4
+GROUP BY 
+    bc.basiccategoryid;
+    `;
+
+    db.query(query, [userid, categoryIdsArray, month, year], (error, results) => {
+        if (error) {
+            return res.status(500).send({error: error.message});
+        }
+        else {
+            res.status(200).send({expenses: results.rows});
+        }
+    });
+});
 
 // fetch data for expense
-expenseRouter.get('/:id', (req, res) => {
+expenseRouter.get('/:id(\\d+)', (req, res) => {
     const userId = req.params.id; // Get userid from query string
 
     if (!userId) {
@@ -222,43 +260,6 @@ expenseRouter.get('/specific', (req, res) => {
     });
 });
 
-expenseRouter.get('/budget', (req, res) => {
-    const {userid, categoryids, date} = req.query;
 
-    const categoryIdsArray = categoryids.split(',').map(Number);
-
-    const formateddate = new Date(date);
-
-    const month = formateddate.getMonth() + 1; // Months are zero-indexed (January is 0)
-    const year = formateddate.getFullYear();
-
-    const query = `
-        SELECT 
-    bc.basiccategoryid,
-    SUM(e.amount) AS total_amount
-FROM 
-    basiccategory bc
-LEFT JOIN 
-    subcategory sc ON bc.basiccategoryid = sc.parentcategoryid
-LEFT JOIN 
-    expense e ON sc.subcategoryid = e.subcategoryid
-WHERE 
-    e.userid = $1
-	AND bc.basiccategoryid = ANY($2) 
-	AND EXTRACT(MONTH FROM e.date) = $3
-	AND EXTRACT(YEAR FROM e.date) = $4
-GROUP BY 
-    bc.basiccategoryid;
-    `;
-
-    db.query(query, [userid, categoryIdsArray, month, year], (error, results) => {
-        if (error) {
-            return res.status(500).send({error: error.message});
-        }
-        else {
-            res.status(200).send({expenses: results.rows});
-        }
-    });
-});
 
 module.exports = expenseRouter;
