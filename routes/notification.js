@@ -18,7 +18,7 @@ notificationRouter.get('/', async (req, res) => {
             TO_CHAR(date, 'YYYY-MM-DD') AS date, 
             TO_CHAR(time, 'HH24:MI:SS') AS time, adminid 
             FROM notification
-            WHERE NOT (type = 'transaction')`;
+            WHERE NOT (type = 'Transaction')`;
         const result = await db.query(query);
 
         if (result.rows.length === 0) {
@@ -32,6 +32,32 @@ notificationRouter.get('/', async (req, res) => {
     }
 });
 
+// get financial aid notification {notificationid} -> response notification list
+notificationRouter.get('/noti/:notificationid', async (req, res) => {
+    try {
+        
+        const { notificationid } = req.params;
+
+        const query = `
+            SELECT 
+                notificationid, title, type, description, image, 
+                TO_CHAR(date, 'YYYY-MM-DD') AS date, TO_CHAR(time, 'HH24:MI:SS') AS time, adminid 
+            FROM notification
+            WHERE notificationid = $1
+        `;
+        const values = [notificationid]; 
+        const result = await db.query(query, values);
+
+        if (result.rows.length === 0) {
+            return res.status(404).json(createResponse([], 0, 'No notifications found.'));
+        }
+
+        res.status(200).json(createResponse(result.rows, 0, 'Notifications retrieved successfully'));
+    } catch (error) {
+        console.error('Error occurred:', error.message);
+        res.status(500).json(createResponse(null, -1001, 'Server Error'));
+    }
+});
 
 // get financial aid notification {date} -> request date, response notification list
 notificationRouter.get('/date', async (req, res) => {
@@ -54,7 +80,7 @@ notificationRouter.get('/date', async (req, res) => {
                 notificationid, title, type, description, image, 
                 TO_CHAR(date, 'YYYY-MM-DD') AS date, TO_CHAR(time, 'HH24:MI:SS') AS time, adminid 
             FROM notification
-            WHERE date::DATE = $1 AND NOT (type = 'transaction')
+            WHERE date::DATE = $1 AND NOT (type = 'Transaction')
         `;
         const values = [date];
         const result = await db.query(query, values);
@@ -328,7 +354,7 @@ notificationRouter.get('/transaction/:userid', async (req, res) => {
             FROM notification n
             INNER JOIN usernotification un 
             ON n.notificationid = un.notificationid
-            WHERE n.type = 'transaction' AND un.userid = $1
+            WHERE n.type = 'Transaction' AND un.userid = $1
         `;
         const result = await db.query(query, [userid]);
 
@@ -357,7 +383,7 @@ notificationRouter.post('/check-budget', async (req, res) => {
         DELETE FROM notification n
         USING usernotification un
         WHERE n.notificationid = un.notificationid
-        AND n.type = 'transaction'
+        AND n.type = 'Transaction'
         AND n.date < date_trunc('month', NOW() AT TIME ZONE 'Asia/Kuala_Lumpur')::date
         AND un.userid = $1
         `;
@@ -480,7 +506,7 @@ AND e.date < date_trunc('month', NOW() AT TIME ZONE 'Asia/Kuala_Lumpur') + inter
                     // add notification -> request notification details, response message
                     const notificationQuery = `
                         INSERT INTO notification (title, type, description, date, time)
-                        VALUES ($1, 'transaction', $2, (NOW() AT TIME ZONE 'Asia/Kuala_Lumpur')::date, (NOW() AT TIME ZONE 'Asia/Kuala_Lumpur')::time)
+                        VALUES ($1, 'Transaction', $2, (NOW() AT TIME ZONE 'Asia/Kuala_Lumpur')::date, (NOW() AT TIME ZONE 'Asia/Kuala_Lumpur')::time)
                         RETURNING notificationid
                     `;
 
@@ -538,6 +564,19 @@ This notification will be automatically deleted on ${deletionDate}.
                         console.error('Error executing user notification insert query:', error.message);
                         return res.status(500).json({ message: 'Error linking notification to user' });
                     }
+                    
+                    //popup notification
+                    /*
+                    pusher.trigger('notifications', 'new_notification', {
+                        notificationid,
+                        title,
+                        description,
+                        image,
+                    }).then(() => {
+                        console.log('Pusher notification sent successfully');
+                    }).catch((error) => {
+                        console.error('Error sending Pusher notification:', error);
+                    });*/
 
                     console.log(`Notification created and linked for threshold ${maxThreshold}%`);
                 } else {
@@ -552,6 +591,248 @@ This notification will be automatically deleted on ${deletionDate}.
         res.status(500).json({ message: 'Server Error' });
     }
 });
+
+// auto send transaction alert notification after user add expense (When expense reach 50%/70%/90%/100% of budget)
+// -> request userid & subcategoryid, response message 
+
+notificationRouter.post('/check-subcategory-budget', async (req, res) => {
+    const { userid, subcategoryid } = req.body;
+
+    if (!userid || !subcategoryid) {
+        return res.status(400).json({ message: 'UserID and SubcategoryID are required' });
+    }
+
+    try {
+        
+        const budgetQuery = `
+            SELECT DISTINCT b.budgetid, b.amount, b.budgetname
+            FROM budget b
+            JOIN budgetbasiccategory bbc ON b.budgetid = bbc.budgetid
+            JOIN basiccategory bc ON bbc.basiccategoryid = bc.basiccategoryid
+            JOIN subcategory sc ON bc.basiccategoryid = sc.parentcategoryid
+            WHERE sc.subcategoryid = $1 AND b.userid = $2
+            AND b.startdate <= date_trunc('month', NOW() AT TIME ZONE 'Asia/Kuala_Lumpur') + interval '1 month'
+            AND b.startdate >= date_trunc('month', NOW() AT TIME ZONE 'Asia/Kuala_Lumpur')
+            UNION
+            SELECT DISTINCT b.budgetid, b.amount, b.budgetname
+            FROM budget b
+            JOIN budgetcustomizecategory bcc ON b.budgetid = bcc.budgetid
+            JOIN customizecategory cc ON bcc.customizecategoryid = cc.customizecategoryid
+            JOIN subcategory sc ON cc.customizecategoryid = sc.parentcategoryid
+            WHERE sc.subcategoryid = $1 AND b.userid = $2
+            AND b.startdate <= date_trunc('month', NOW() AT TIME ZONE 'Asia/Kuala_Lumpur') + interval '1 month'
+            AND b.startdate >= date_trunc('month', NOW() AT TIME ZONE 'Asia/Kuala_Lumpur');
+        `;
+
+        /*
+            SELECT DISTINCT b.budgetid, b.amount, b.budgetname
+            FROM budget b
+            JOIN budgetbasiccategory bbc ON b.budgetid = bbc.budgetid
+            JOIN basiccategory bc ON bbc.basiccategoryid = bc.basiccategoryid
+            JOIN subcategory sc ON bc.basiccategoryid = sc.parentcategoryid
+            WHERE sc.subcategoryid = $1 AND b.userid = $2
+            AND b.startdate <= date_trunc('month', NOW() AT TIME ZONE 'Asia/Kuala_Lumpur') + interval '1 month'
+            AND b.startdate >= date_trunc('month', NOW() AT TIME ZONE 'Asia/Kuala_Lumpur')
+            UNION
+            SELECT DISTINCT b.budgetid, b.amount, b.budgetname
+            FROM budget b
+            JOIN budgetcustomizecategory bcc ON b.budgetid = bcc.budgetid
+            JOIN customizecategory cc ON bcc.customizecategoryid = cc.customizecategoryid
+            JOIN subcategory sc ON cc.customizecategoryid = sc.parentcategoryid
+            WHERE sc.subcategoryid = $1 AND b.userid = $2
+            AND b.startdate <= date_trunc('month', NOW() AT TIME ZONE 'Asia/Kuala_Lumpur') + interval '1 month'
+            AND b.startdate >= date_trunc('month', NOW() AT TIME ZONE 'Asia/Kuala_Lumpur');
+
+         */
+
+        let budgetResult;
+        try {
+            budgetResult = await db.query(budgetQuery, [subcategoryid, userid]);
+        } catch (error) {
+            console.error('Error executing budget query:', error.message);
+            return res.status(500).json({ message: 'Error fetching budget data' });
+        }
+
+
+        if (budgetResult.rows.length === 0) {
+            return res.status(404).json({ message: 'No associated budget found for this subcategory' });
+        }
+
+        console.log('Budget data fetched:', budgetResult.rows);
+
+        const { budgetid, amount: budgetAmount, budgetname: budgetName } = budgetResult.rows[0];
+
+        // Total Expense for the subcategory
+        const expenseQuery = `
+            SELECT COALESCE(SUM(e.amount), 0) AS totalSpent
+            FROM expense e
+            WHERE e.userid = $1
+            AND (
+                EXISTS (
+                    -- Customize Category Path
+                    SELECT 1
+                    FROM subcategory sc
+                    JOIN customizecategory cc ON sc.parentcategoryid = cc.customizecategoryid
+                    JOIN budgetcustomizecategory bcc ON cc.customizecategoryid = bcc.customizecategoryid
+                    WHERE sc.subcategoryid = e.subcategoryid
+                    AND bcc.budgetid = $2
+                )
+                OR
+                EXISTS (
+                    -- Basic Category Path
+                    SELECT 1
+                    FROM subcategory sc
+                    JOIN basiccategory bc ON sc.parentcategoryid = bc.basiccategoryid
+                    JOIN budgetbasiccategory bbc ON bc.basiccategoryid = bbc.basiccategoryid
+                    WHERE sc.subcategoryid = e.subcategoryid
+                    AND bbc.budgetid = $2
+                )
+            )
+            AND e.date >= date_trunc('month', NOW() AT TIME ZONE 'Asia/Kuala_Lumpur')
+            AND e.date < date_trunc('month', NOW() AT TIME ZONE 'Asia/Kuala_Lumpur') + interval '1 month';
+            
+        `;
+
+        /*
+        
+            SELECT COALESCE(SUM(e.amount), 0) AS totalSpent
+            FROM expense e
+            WHERE e.userid = $1
+            AND e.subcategoryid = $2
+            AND e.date >= date_trunc('month', NOW() AT TIME ZONE 'Asia/Kuala_Lumpur')
+            AND e.date < date_trunc('month', NOW() AT TIME ZONE 'Asia/Kuala_Lumpur') + interval '1 month';
+         */
+        let expenseResult;
+        try {
+            expenseResult = await db.query(expenseQuery, [userid, budgetid]);
+
+        } catch (error) {
+            console.error('Error executing expense query:', error.message);
+            return res.status(500).json({ message: 'Error fetching expense data' });
+        }
+
+        const totalSpent = expenseResult.rows[0]?.totalspent || 0;
+        const percentage = (totalSpent / budgetAmount) * 100;
+
+        const thresholds = [50, 70, 90, 100];
+        const reachedThresholds = thresholds.filter(threshold => percentage >= threshold);
+
+        if (reachedThresholds.length > 0) {
+            const maxThreshold = Math.max(...reachedThresholds);
+
+            // Check if notification exists
+            const notificationCheckQuery = `
+                SELECT * FROM notification n
+                INNER JOIN usernotification un ON n.notificationid = un.notificationid
+                WHERE n.title = $1 AND un.userid = $2
+            `;
+            let checkResult;
+            try {
+                checkResult = await db.query(notificationCheckQuery, [`Budget "${budgetName}" reached ${maxThreshold}%`, userid]);
+            } catch (error) {
+                console.error('Error executing notification check query:', error.message);
+                return res.status(500).json({ message: 'Error checking notifications' });
+            }
+
+            if (checkResult.rows.length === 0) {
+                console.log(`No existing notification for threshold ${maxThreshold}%. Creating new notification.`);
+                // Create new notification
+
+                const notificationInsertQuery = `
+                    INSERT INTO notification (title, type, description, date, time)
+                    VALUES ($1, 'Transaction', $2, (NOW() AT TIME ZONE 'Asia/Kuala_Lumpur')::date, (NOW() AT TIME ZONE 'Asia/Kuala_Lumpur')::time)
+                    RETURNING notificationid
+                `;
+
+                const thresholdMessages = {
+                    50: `Your spending has reached 50% of your budget. It might be a good time to start planning how to manage the remaining funds. Keep track of your expenses and prioritize your needs.`,
+                    70: `You're at 70% of your budget! You may want to reconsider your spending habits. It's a good idea to review your expenses and adjust your plans accordingly.`,
+                    90: `You've hit 90% of your budget! Be cautious with your spending from now on to avoid exceeding your limit. Review upcoming expenses and look for ways to save.`,
+                    100: `Your spending has exceeded your budget! It's crucial to stop and re-evaluate your remaining expenses. You may need to cut back or adjust your financial plans.`,
+                };
+
+                const nextMonthFirstDay = new Date();
+                nextMonthFirstDay.setMonth(nextMonthFirstDay.getMonth() + 1);
+                nextMonthFirstDay.setDate(1);
+                const deletionDate = nextMonthFirstDay.toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' });
+                
+                // Modify the notification description based on the threshold
+                const notificationDescription = `
+Your spending has reached ${maxThreshold}% of your budget: "${budgetName}".
+                
+Details:
+- Budget Name: ${budgetName}
+- Total Expense: RM ${totalSpent}
+- Budget Amount: RM ${budgetAmount}
+                
+Tips:
+${thresholdMessages[maxThreshold]}
+
+Note:
+This notification will be automatically deleted on ${deletionDate}.
+`;
+
+                const notificationValues = [
+                    `Budget "${budgetName}" reached ${maxThreshold}%`,
+                    notificationDescription
+                ];
+
+
+                let notificationResult;
+
+                try {
+                    notificationResult = await db.query(notificationInsertQuery, notificationValues);
+                } catch (error) {
+                    console.error('Error executing notification insert query:', error.message);
+                    return res.status(500).json({ message: 'Error creating notification' });
+                }
+
+                const notificationID = notificationResult.rows[0].notificationid;
+
+                
+                const userNotificationQuery = `
+                    INSERT INTO usernotification (notificationid, userid) VALUES ($1, $2)
+                `;
+                try {
+                    await db.query(userNotificationQuery, [notificationID, userid]);
+                    console.log(`Notification created and linked for threshold ${maxThreshold}%`);
+                } catch (error) {
+                    console.error('Error executing user notification insert query:', error.message);
+                    return res.status(500).json({ message: 'Error linking notification to user' });
+                }
+
+                const id = notificationResult.rows[0].notificationid;
+                const title = `Budget "${budgetName}" reached ${maxThreshold}%`; 
+                const description = notificationDescription; 
+                const image = null; 
+
+                console.log('Notification ID:', notificationID);
+                console.log('Pusher Data:', { notificationid: id, title, description, image });
+
+                pusher.trigger('notifications', 'new_notification', {
+                    notificationid: id,
+                    title: title,
+                    description: description,
+                    image: image,
+                }).then(() => {
+                    console.log('Pusher notification sent successfully');
+                }).catch((error) => {
+                    console.error('Error sending Pusher notification:', error);
+                });
+
+                console.log(`Notification created and linked for threshold ${maxThreshold}%`);
+
+            }else {
+                console.log(`Notification for threshold ${maxThreshold}% already exists.`);
+            }
+        }
+
+        res.status(200).json({ message: 'Subcategory budget analysis completed and notifications sent if applicable' });
+    }catch (error) {
+        console.error('Error processing subcategory budget:', error.message);
+        res.status(500).json({ message: 'Server Error' });}
+});
+
 
 
 module.exports = notificationRouter;
