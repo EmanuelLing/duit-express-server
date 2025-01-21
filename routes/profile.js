@@ -5,63 +5,123 @@ const multer = require('multer');
 const sharp = require('sharp');
 
 const upload = multer({
-  storage: multer.memoryStorage(), 
-  limits: { fileSize: 10 * 1024 * 1024 }, 
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 10 * 1024 * 1024 }, // 10MB limit
 });
 
+// Update profile details
 profileRouter.put('/update-profile/:userid', async (req, res) => {
-    const { userid } = req.params;
-    const { name, phonenumber, address } = req.body;
-  
-    if (!userid || isNaN(userid) || userid <= 0) {
-      return res.status(400).json({ message: 'Invalid user ID provided.' });
+  const { userid } = req.params;
+  const { name, phonenumber, address } = req.body;
+
+  if (!userid || isNaN(userid) || userid <= 0) {
+    return res.status(400).json({ message: 'Invalid user ID provided.' });
+  }
+
+  if (!name || name.trim().length < 3) {
+    return res.status(400).json({ message: 'Name must have at least 3 characters.' });
+  }
+
+  const phonePattern = /^\+?[0-9]{1,4}?[0-9]{7,15}$/;
+  if (!phonenumber || !phonePattern.test(phonenumber)) {
+    return res.status(400).json({ message: 'Invalid phone number format. Please check and try again.' });
+  }
+
+  const addressPattern = /^No\.\d{1,4}\s[A-Za-z0-9\s]+,\s[A-Za-z0-9\s]+,\s\d{5},\s[A-Za-z\s]+$/;
+  if (!address || !addressPattern.test(address)) {
+    return res.status(400).json({
+      message: 'Address must be valid (e.g., No.1234 Jalan 2, Taman, 76100, Melaka).',
+    });
+  }
+
+  try {
+    console.log('[DEBUG] Update Request:', {
+      userid,
+      name,
+      phonenumber,
+      address,
+    });
+
+    const updateResult = await db.query(
+      'UPDATE appuser SET name = $1, address = $2, phonenumber = $3 WHERE userid = $4',
+      [name, address, phonenumber, userid]
+    );
+
+    if (updateResult.rowCount === 0) {
+      return res.status(404).json({ message: 'User not found or no changes made.' });
     }
-  
-    if (!name || name.trim().length < 3) {
-      return res.status(400).json({ message: 'Name must have at least 3 characters.' });
-    }
-  
-    const phonePattern = /^\+?[0-9]{1,4}?[0-9]{7,15}$/;
-    if (!phonenumber || !phonePattern.test(phonenumber)) {
-      return res.status(400).json({ message: 'Invalid phone number format. Please check and try again.' });
-    }
-  
-    const addressPattern = /^No\.\d{1,4}\s[A-Za-z0-9\s]+,\s[A-Za-z0-9\s]+,\s\d{5},\s[A-Za-z\s]+$/;
-    if (!address || !addressPattern.test(address)) {
-      return res.status(400).json({
-        message: 'Address must be valid (e.g., No.1234 Jalan 2, Taman, 76100, Melaka).',
-      });
-    }
-  
-    try {
-      console.log('[DEBUG] Update Request:', {
-        userid,
-        name,
-        phonenumber,
-        address,
-      });
-  
-      const updateResult = await db.query(
-        'UPDATE appuser SET name = $1, address = $2, phonenumber = $3 WHERE userid = $4',
-        [name, address, phonenumber, userid]
-      );
-  
-      if (updateResult.rowCount === 0) {
-        return res.status(404).json({ message: 'User not found or no changes made.' });
-      }
-  
-      const selectResult = await db.query('SELECT * FROM appuser WHERE userid = $1', [userid]);
-  
-      res.status(200).json({
-        message: 'Profile updated successfully',
-        user: selectResult.rows[0],
-      });
-    } catch (error) {
-      console.error('[ERROR] Updating profile failed:', error);
-      res.status(500).json({ error: 'An internal server error occurred. Please try again later.' });
-    }
+
+    const selectResult = await db.query('SELECT * FROM appuser WHERE userid = $1', [userid]);
+
+    res.status(200).json({
+      message: 'Profile updated successfully',
+      user: selectResult.rows[0],
+    });
+  } catch (error) {
+    console.error('[ERROR] Updating profile failed:', error);
+    res.status(500).json({ error: 'An internal server error occurred. Please try again later.' });
+  }
 });
 
+// Get profile image
+profileRouter.get('/get-profile-image/:userid', async (req, res) => {
+  const { userid } = req.params;
 
+  try {
+    const userQuery = await db.query('SELECT personalimage FROM appuser WHERE userid = $1', [userid]);
+
+    if (userQuery.rows.length === 0) {
+      return res.status(404).json({ message: 'User not found' });
+    }
+
+    const user = userQuery.rows[0];
+
+    if (!user.personalimage) {
+      return res.status(404).json({ message: 'No profile image found' });
+    }
+
+    res.set('Content-Type', 'image/jpeg'); // Adjust based on your image format
+    res.send(user.personalimage);
+  } catch (error) {
+    console.error('[ERROR] Fetching profile image failed:', error);
+    res.status(500).json({ error: 'An internal server error occurred. Please try again later.' });
+  }
+});
+
+// Update profile image
+profileRouter.post('/update-profile-image/:userid', upload.single('personalImage'), async (req, res) => {
+  const { userid } = req.params;
+
+  if (!userid || isNaN(userid) || userid <= 0) {
+    return res.status(400).json({ message: 'Invalid user ID provided.' });
+  }
+
+  if (!req.file) {
+    return res.status(400).json({ message: 'No image file uploaded.' });
+  }
+
+  try {
+    // Resize and convert the image using Sharp (optional)
+    const resizedImage = await sharp(req.file.buffer)
+      .resize(256, 256) // Resize to 256x256 pixels
+      .jpeg({ quality: 90 }) // Convert to JPEG with 90% quality
+      .toBuffer();
+
+    // Update the user's profile image in the database
+    const updateResult = await db.query(
+      'UPDATE appuser SET personalimage = $1 WHERE userid = $2',
+      [resizedImage, userid]
+    );
+
+    if (updateResult.rowCount === 0) {
+      return res.status(404).json({ message: 'User not found or no changes made.' });
+    }
+
+    res.status(200).json({ message: 'Profile image updated successfully' });
+  } catch (error) {
+    console.error('[ERROR] Updating profile image failed:', error);
+    res.status(500).json({ error: 'An internal server error occurred. Please try again later.' });
+  }
+});
 
 module.exports = profileRouter;
