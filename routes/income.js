@@ -48,23 +48,24 @@ income_router.get('/:id', (req, res) => {
     const userId = req.params.id;
 
     const query = `
-        SELECT * FROM income 
+        SELECT amount FROM income 
         WHERE userid = $1
     `;
 
+    // Pass userId as a parameter
     db.query(query, [userId], (error, results) => {
         if (error) {
             console.error('Database error:', error);
             return res.status(500).send({ error: 'Database error' });
         }
-        console.log('Fetched Income:', results.rows);
         if (results.rows.length > 0) {
-            res.status(200).json(results.rows); // Send the income data as JSON
+            res.status(200).json(results.rows); // Send the transaction data as JSON
         } else {
-            res.status(404).send({ error: 'No income records found' });
+            res.status(404).send({ error: 'No Income amount found' });
         }
     });
 });
+
 
 
 // Update an income in the database

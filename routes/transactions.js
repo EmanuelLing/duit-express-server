@@ -5,7 +5,13 @@ const transactionList_router = express.Router();
 
 const db = require('./../db');
 
-transactionList_router.get('/',(req,res) => {
+transactionList_router.get('/:id',(req,res) => {
+    const userid = req.params.id; // Match the route parameter name
+    if(!userid){
+        return res.status(400).send({error: 'User ID is required'});
+    }
+
+
     const query = `
     SELECT
     e.expenseid AS transaction_id,
@@ -27,6 +33,8 @@ transactionList_router.get('/',(req,res) => {
     LEFT JOIN subcategory s ON e.subcategoryid = s.subcategoryid
     LEFT JOIN basiccategory bc ON s.parentcategoryid = bc.basiccategoryid -- Join to get category name
     LEFT JOIN icon i ON s.iconid = i.iconid
+    WHERE
+        e.userid = $1 -- Filter by userid for expenses
 
     UNION ALL
 
@@ -49,12 +57,14 @@ transactionList_router.get('/',(req,res) => {
         income i
     LEFT JOIN incomecategory ic ON i.incomecategoryid = ic.incomecategoryid
     LEFT JOIN icon ico ON ic.iconid = ico.iconid
+    WHERE
+        i.userid = $1 -- Filter by userid for income
 
     ORDER BY date DESC, transaction_type;
 
     `;
 
-    db.query(query,(error, results) =>{
+    db.query(query,[userid],(error, results) =>{
         if(error){
             console.error('Database error:', error);
             return res.status(500).send({error:'Database error'});

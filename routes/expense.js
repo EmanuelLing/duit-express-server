@@ -6,34 +6,41 @@ const expenseRouter = express.Router(); // a router instance to handle routes sp
 const db = require('./../db');
 
 // fetch data for expense
-expenseRouter.get('/', (req, res) => {
-    const query = `
-    SELECT 
-    e.*,                           -- Select all columns from the expense table
-    s.name AS subcategory_name,    -- Select the name column from the subcategory table
-    c.name AS category_name,       -- Select the name column from the parent category
-    i.name AS icon_name,           -- Select the name column from the icon table
-    i.codepoint,                   -- Select the codepoint column from the icon table
-    i.fontfamily,                  -- Select the fontfamily column from the icon table
-    i.color                        -- Select the color column from the icon table
-    FROM 
-        public.expense e
-    JOIN 
-        public.subcategory s
-    ON 
-        e.subcategoryid = s.subcategoryid         -- Join condition between expense and subcategory
-    LEFT JOIN 
-        public.subcategory c
-    ON 
-        s.parentcategoryid = c.subcategoryid     -- Join to get the parent category name
-    JOIN 
-        public.icon i
-    ON 
-        s.iconid = i.iconid;                     -- Join condition between subcategory and icon
+expenseRouter.get('/:id', (req, res) => {
+    const userId = req.params.id; // Get userid from query string
 
+    if (!userId) {
+        return res.status(400).send({ error: 'User ID is required' }); // Validate userid
+    }
+
+    const query = `
+        SELECT 
+            e.*,                           -- Select all columns from the expense table
+            s.name AS subcategory_name,    -- Select the name column from the subcategory table
+            c.name AS category_name,       -- Select the name column from the parent category
+            i.name AS icon_name,           -- Select the name column from the icon table
+            i.codepoint,                   -- Select the codepoint column from the icon table
+            i.fontfamily,                  -- Select the fontfamily column from the icon table
+            i.color                        -- Select the color column from the icon table
+        FROM 
+            public.expense e
+        JOIN 
+            public.subcategory s
+        ON 
+            e.subcategoryid = s.subcategoryid         -- Join condition between expense and subcategory
+        LEFT JOIN 
+            public.subcategory c
+        ON 
+            s.parentcategoryid = c.subcategoryid     -- Join to get the parent category name
+        JOIN 
+            public.icon i
+        ON 
+            s.iconid = i.iconid                      -- Join condition between subcategory and icon
+        WHERE 
+            e.userid = $1;                           -- Filter by userid
     `;
 
-    db.query(query, (error, results) => {
+    db.query(query, [userId], (error, results) => {
         if (error) {
             console.error('Database error:', error);
             return res.status(500).send({ error: 'Database error' });
@@ -45,6 +52,7 @@ expenseRouter.get('/', (req, res) => {
         }
     });
 });
+
 
 // add expense to database
 expenseRouter.post('/', (req, res) => {
