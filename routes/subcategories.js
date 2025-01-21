@@ -8,7 +8,7 @@ const db = require('./../db');  // imports db connection pool
 
 
 // Add subcategory to the database
-subcategories_router.post('/', (req, res) => {
+subcategories_router.post('/:id', (req, res) => {
     const { subcategory_name, parentcategoryid, iconid } = req.body;
 
     // Check if all required fields are provided
@@ -19,8 +19,8 @@ subcategories_router.post('/', (req, res) => {
 
     // SQL query to insert the subcategory into the database
     const query = `
-        INSERT INTO subcategory (name, parentcategoryid, iconid)
-        VALUES ($1, $2, $3) RETURNING *;
+        INSERT INTO subcategory (userid,name, parentcategoryid, iconid)
+        VALUES ($1, $2, $3,$4) RETURNING *;
     `;
 
     // Execute the query

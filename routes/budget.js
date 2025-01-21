@@ -22,8 +22,8 @@ const db = require('./../db');
 //     });
 // });
 
-budgetRouter.get('/', (req, res) => {
-    const userid = req.query.userid;
+budgetRouter.get('/:id', (req, res) => {
+    const userid = parseInt(req.params.id, 10);
 
     // const query = 'SELECT b.budgetid, b.amount, b.startdate, b.recurrence, b.userid, b.budgetname, STRING_AGG(bc.name, \', \') AS categorynames FROM budget b JOIN budgetbasiccategory bb ON b.budgetid = bb.budgetid JOIN basiccategory bc ON bb.basiccategoryid = bc.basiccategoryid WHERE b.userid = 1 GROUP BY b.budgetid, b.amount, b.startdate, b.recurrence, b.userid, b.budgetname';
 

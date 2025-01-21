@@ -4,36 +4,81 @@ const expenseRouter = express.Router(); // a router instance to handle routes sp
 
 // database connection
 const db = require('./../db');
+expenseRouter.get('/budget', (req, res) => {
+    const {userid, categoryids, date} = req.query;
 
-// fetch data for expense
-expenseRouter.get('/', (req, res) => {
+    const categoryIdsArray = categoryids.split(',').map(Number);
+
+    const formateddate = new Date(date);
+
+    const month = formateddate.getMonth() + 1; // Months are zero-indexed (January is 0)
+    const year = formateddate.getFullYear();
+
     const query = `
-    SELECT 
-    e.*,                           -- Select all columns from the expense table
-    s.name AS subcategory_name,    -- Select the name column from the subcategory table
-    c.name AS category_name,       -- Select the name column from the parent category
-    i.name AS icon_name,           -- Select the name column from the icon table
-    i.codepoint,                   -- Select the codepoint column from the icon table
-    i.fontfamily,                  -- Select the fontfamily column from the icon table
-    i.color                        -- Select the color column from the icon table
-    FROM 
-        public.expense e
-    JOIN 
-        public.subcategory s
-    ON 
-        e.subcategoryid = s.subcategoryid         -- Join condition between expense and subcategory
-    LEFT JOIN 
-        public.subcategory c
-    ON 
-        s.parentcategoryid = c.subcategoryid     -- Join to get the parent category name
-    JOIN 
-        public.icon i
-    ON 
-        s.iconid = i.iconid;                     -- Join condition between subcategory and icon
-
+        SELECT 
+    bc.basiccategoryid,
+    SUM(e.amount) AS total_amount
+FROM 
+    basiccategory bc
+LEFT JOIN 
+    subcategory sc ON bc.basiccategoryid = sc.parentcategoryid
+LEFT JOIN 
+    expense e ON sc.subcategoryid = e.subcategoryid
+WHERE 
+    e.userid = $1
+	AND bc.basiccategoryid = ANY($2) 
+	AND EXTRACT(MONTH FROM e.date) = $3
+	AND EXTRACT(YEAR FROM e.date) = $4
+GROUP BY 
+    bc.basiccategoryid;
     `;
 
-    db.query(query, (error, results) => {
+    db.query(query, [userid, categoryIdsArray, month, year], (error, results) => {
+        if (error) {
+            return res.status(500).send({error: error.message});
+        }
+        else {
+            res.status(200).send({expenses: results.rows});
+        }
+    });
+});
+
+// fetch data for expense
+expenseRouter.get('/:id(\\d+)', (req, res) => {
+    const userId = req.params.id; // Get userid from query string
+
+    if (!userId) {
+        return res.status(400).send({ error: 'User ID is required' }); // Validate userid
+    }
+
+    const query = `
+        SELECT 
+            e.*,                           -- Select all columns from the expense table
+            s.name AS subcategory_name,    -- Select the name column from the subcategory table
+            c.name AS category_name,       -- Select the name column from the parent category
+            i.name AS icon_name,           -- Select the name column from the icon table
+            i.codepoint,                   -- Select the codepoint column from the icon table
+            i.fontfamily,                  -- Select the fontfamily column from the icon table
+            i.color                        -- Select the color column from the icon table
+        FROM 
+            public.expense e
+        JOIN 
+            public.subcategory s
+        ON 
+            e.subcategoryid = s.subcategoryid         -- Join condition between expense and subcategory
+        LEFT JOIN 
+            public.subcategory c
+        ON 
+            s.parentcategoryid = c.subcategoryid     -- Join to get the parent category name
+        JOIN 
+            public.icon i
+        ON 
+            s.iconid = i.iconid                      -- Join condition between subcategory and icon
+        WHERE 
+            e.userid = $1;                           -- Filter by userid
+    `;
+
+    db.query(query, [userId], (error, results) => {
         if (error) {
             console.error('Database error:', error);
             return res.status(500).send({ error: 'Database error' });
@@ -45,6 +90,7 @@ expenseRouter.get('/', (req, res) => {
         }
     });
 });
+
 
 // add expense to database
 expenseRouter.post('/', (req, res) => {
@@ -214,43 +260,6 @@ expenseRouter.get('/specific', (req, res) => {
     });
 });
 
-expenseRouter.get('/budget', (req, res) => {
-    const {userid, categoryids, date} = req.query;
 
-    const categoryIdsArray = categoryids.split(',').map(Number);
-
-    const formateddate = new Date(date);
-
-    const month = formateddate.getMonth() + 1; // Months are zero-indexed (January is 0)
-    const year = formateddate.getFullYear();
-
-    const query = `
-        SELECT 
-    bc.basiccategoryid,
-    SUM(e.amount) AS total_amount
-FROM 
-    basiccategory bc
-LEFT JOIN 
-    subcategory sc ON bc.basiccategoryid = sc.parentcategoryid
-LEFT JOIN 
-    expense e ON sc.subcategoryid = e.subcategoryid
-WHERE 
-    e.userid = $1
-	AND bc.basiccategoryid = ANY($2) 
-	AND EXTRACT(MONTH FROM e.date) = $3
-	AND EXTRACT(YEAR FROM e.date) = $4
-GROUP BY 
-    bc.basiccategoryid;
-    `;
-
-    db.query(query, [userid, categoryIdsArray, month, year], (error, results) => {
-        if (error) {
-            return res.status(500).send({error: error.message});
-        }
-        else {
-            res.status(200).send({expenses: results.rows});
-        }
-    });
-});
 
 module.exports = expenseRouter;
