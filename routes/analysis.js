@@ -31,7 +31,7 @@ LEFT JOIN
     subcategory sc ON bc.basiccategoryid = sc.parentcategoryid
 LEFT JOIN 
     expense e ON sc.subcategoryid = e.subcategoryid 
-               AND e.userid = 1 
+               AND e.userid = $1 
                AND EXTRACT(MONTH FROM e.date) = $2
                AND EXTRACT(YEAR FROM e.date) = $3
 WHERE 

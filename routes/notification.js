@@ -160,6 +160,55 @@ notificationRouter.get('/category/:financialaidcategoryid', async (req, res) => 
     }
 });
 
+/*
+// filter -> request type and categoryIds
+notificationRouter.post('/filter', async (req, res) => {
+    try {
+        const { type, categoryIds } = req.body;
+        let query = `
+            SELECT n.notificationid, n.title, n.type, n.description, n.image,
+                   TO_CHAR(n.date, 'YYYY-MM-DD') AS date, 
+                   TO_CHAR(n.time, 'HH24:MI:SS') AS time, n.adminid
+            FROM notification n
+        `;
+
+        const conditions = [];
+        const values = [];
+
+        if (type) {
+            conditions.push('n.type = $' + (values.length + 1));
+            values.push(type);
+        }
+
+        if (categoryIds && Array.isArray(categoryIds)) {
+            conditions.push(`n.notificationid IN (
+                SELECT fn.notificationid
+                FROM financialaidcategory_notification fn
+                WHERE fn.financialaidcategoryid = ANY($${values.length + 1})
+            )`);
+            values.push(categoryIds);
+        }
+
+        if (conditions.length > 0) {
+            query += ' WHERE ' + conditions.join(' AND ');
+        }
+
+        query += ' ORDER BY n.date DESC, n.time DESC';
+
+        const result = await db.query(query, values);
+
+        if (result.rows.length === 0) {
+            return res.status(404).json({ data: [], errorCode: 0, message: 'No notifications found' });
+        }
+
+        res.status(200).json({ data: result.rows, errorCode: 0, message: 'Filtered notifications retrieved successfully' });
+    } catch (error) {
+        console.error('Error fetching filtered notifications:', error.message);
+        res.status(500).json({ data: null, errorCode: -1001, message: 'Server Error' });
+    }
+});*/
+
+
 
 // add notification -> request notification details, response success message
 notificationRouter.post('/', async (req, res) => {
