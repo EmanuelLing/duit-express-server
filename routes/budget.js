@@ -67,7 +67,7 @@ budgetRouter.get('/:id', (req, res) => {
 budgetRouter.post('/', (req, res) => {
     const {budgetname, amount, startdate, recurrence, userid} = req.body;
 
-    db.query('SELECT * FROM budget WHERE budgetname = $1 AND startdate = $2', [budgetname, startdate], (error, results) => {
+    db.query('SELECT * FROM budget WHERE startdate = $1 AND userid = $2', [startdate, userid], (error, results) => {
         if (error) {
             return res.status(500).send({error: error.message});
         }
