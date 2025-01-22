@@ -4,6 +4,7 @@ const expenseRouter = express.Router(); // a router instance to handle routes sp
 
 // database connection
 const db = require('./../db');
+
 expenseRouter.get('/budget', (req, res) => {
     const {userid, categoryids, date} = req.query;
 
@@ -55,7 +56,7 @@ expenseRouter.get('/:id(\\d+)', (req, res) => {
         SELECT 
             e.expenseid,
             e.amount,
-            (e.date AT TIME ZONE 'Asia/Kuala_Lumpur') AS date,
+            (e.date AT TIME ZONE 'UTC') AT TIME ZONE 'Asia/Kuala_Lumpur' AS date,
             e.description,
             e.paymenttype,
             e.userid,
@@ -97,7 +98,6 @@ expenseRouter.get('/:id(\\d+)', (req, res) => {
         }
     });
 });
-
 
 // add expense to database
 expenseRouter.post('/', (req, res) => {
