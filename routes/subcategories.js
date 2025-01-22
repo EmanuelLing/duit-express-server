@@ -42,7 +42,8 @@ subcategories_router.post('/:id', (req, res) => {
 
 
 // to view all subcategories
-subcategories_router.get('/:parentCategoryId',(req,res) =>{    
+
+subcategories_router.get('/basic/:parentCategoryId',(req,res) =>{    
     const parentCategoryId = req.params.parentCategoryId;
 
     const query = `
@@ -75,9 +76,10 @@ subcategories_router.get('/:parentCategoryId',(req,res) =>{
         else{
             res.status(404).send({error: ' no category found'});
         }
-        
-    });
+    });
 
 })
+
+
 
 module.exports = subcategories_router;

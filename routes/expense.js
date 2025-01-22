@@ -53,13 +53,20 @@ expenseRouter.get('/:id(\\d+)', (req, res) => {
 
     const query = `
         SELECT 
-            e.*,                           -- Select all columns from the expense table
+            e.expenseid,
+            e.amount,
+            (e.date AT TIME ZONE 'Asia/Kuala_Lumpur') AS date,
+            e.description,
+            e.paymenttype,
+            e.userid,
+            e.subcategoryid,
             s.name AS subcategory_name,    -- Select the name column from the subcategory table
             c.name AS category_name,       -- Select the name column from the parent category
             i.name AS icon_name,           -- Select the name column from the icon table
             i.codepoint,                   -- Select the codepoint column from the icon table
             i.fontfamily,                  -- Select the fontfamily column from the icon table
             i.color                        -- Select the color column from the icon table
+            
         FROM 
             public.expense e
         JOIN 
