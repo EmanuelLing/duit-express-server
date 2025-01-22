@@ -54,13 +54,7 @@ expenseRouter.get('/:id(\\d+)', (req, res) => {
 
     const query = `
         SELECT 
-            e.expenseid,
-            e.amount,
-            (e.date AT TIME ZONE 'UTC') AT TIME ZONE 'Asia/Kuala_Lumpur' AS date,
-            e.description,
-            e.paymenttype,
-            e.userid,
-            e.subcategoryid,
+            e.*,
             s.name AS subcategory_name,    -- Select the name column from the subcategory table
             c.name AS category_name,       -- Select the name column from the parent category
             i.name AS icon_name,           -- Select the name column from the icon table
