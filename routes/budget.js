@@ -133,6 +133,8 @@ budgetRouter.post('/budgetandcategory', (req, res) => {
             return res.status(500).send({error: error.message});
         }
         else if (results.rows.length > 0) {
+
+            
             return res.status(400).send({error: "bad request"});
         }
         else {

@@ -1,11 +1,12 @@
+require('dotenv').config(); // Load environment variables
 const pg = require('pg');
 
 const pool = new pg.Pool({
-    host: 'duitappworkshop2.postgres.database.azure.com',
-    database: 'postgres',
-    user: 'duit_admin',
-    password: '@Bcd1234',
-    port: 5432, // Default PostgreSQL port  
+    host: process.env.DB_HOS,
+    database: process.env.DB_NAME,
+    user:  process.env.DB_USER,
+    password: process.env.DB_PASSWORD,
+    port: process.env.DB_PORT,
     ssl: true
 
 });
